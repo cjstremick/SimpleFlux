@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33723.286
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{456C4EC6-78E3-4BA9-8F6F-BEA4962C93EF}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleFlux.Sample", "sample\ConsoleApp1\SimpleFlux.Sample.csproj", "{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleFlux", "src\SimpleFlux\SimpleFlux.csproj", "{351F47CF-3893-4756-AE26-A3C45FE17175}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}.Release|Any CPU.Build.0 = Release|Any CPU
+		{351F47CF-3893-4756-AE26-A3C45FE17175}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{351F47CF-3893-4756-AE26-A3C45FE17175}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{351F47CF-3893-4756-AE26-A3C45FE17175}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{351F47CF-3893-4756-AE26-A3C45FE17175}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C1CD3C39-7F2D-460A-99B0-E9E359243914}
+	EndGlobalSection
+EndGlobal
