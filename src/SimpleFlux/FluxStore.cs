@@ -73,7 +73,7 @@ public class FluxStore
     }
 
 
-    public Task<IEnumerable<FluxEvent>> GetEvents(string id)
+    private Task<IEnumerable<FluxEvent>> GetEvents(string id)
     {
         var results = _tableClient
             .Query<TableEntity>(e => e.PartitionKey == id && e.RowKey != FluxHeader.FluxHeaderKey)
@@ -145,16 +145,18 @@ public class FluxStore
         return tableEntity;
     }
 
-    public async Task<T> ProjectTo<T>(string id) where T : FluxProjection
+    public async Task<T?> ProjectTo<T>(string id) where T : FluxProjection
     {
         if (Activator.CreateInstance(typeof(T), id) is not T projection)
             throw new Exception($"Failed to create Projection {typeof(T)}.");
         var events = await GetEvents(id);
-        projection.Load(events);
+        var eventsArray = events.ToArray();
+        if (eventsArray.Length == 0) return null;
+        projection.Load(eventsArray);
         return projection;
     }
 
-    internal class KnownFluxEventType
+    private class KnownFluxEventType
     {
         public string Name { get; set; } = null!;
         public Type Type { get; set; } = null!;

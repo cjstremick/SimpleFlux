@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using Azure.Data.Tables;
-using SimpleFlux;
 using SimpleFlux.Sample.Modules;
 
 var tableClient = new TableClient("UseDevelopmentStorage=true", "FluxStore");
@@ -43,38 +42,3 @@ while (!isDone)
         Console.WriteLine("Invalid choice");
     }
 }
-
-var c = new FluxStore(tableClient);
-// await c.AddEvent(new ItemAdded("Cj", "1"));
-// await c.AddEvent(new ItemAdded("Cj", "2"));
-
-// await c.AddEvents(new FluxEvent[] {
-//     new ItemAdded("Cj", "3"),
-//     new ItemAdded("Cj", "1"),
-//     new ItemChanged("Cj", "2", Faker.RandomNumber.Next(1, 10)),
-//     new ItemRemoved("Cj", "3")
-// });
-
-// var sw = Stopwatch.StartNew();
-// for (int i = 0; i < 100; i++)
-// {
-//     await c.AddEvent(new ItemAdded(Faker.Desciption.FullName(), Faker.RandomNumber.Next(1, 10).ToString()));
-// }
-// Console.WriteLine($"AddEvent: {sw.ElapsedMilliseconds}ms");
-
-// sw.Restart();
-// var events = new List<FluxEvent>();
-// var names = Enumerable
-//     .Range(1, 10)
-//     .Select(_ => Faker.Desciption.FullName());
-// foreach (var name in names)
-// {
-//     events.AddRange(Enumerable
-//         .Range(1, 10)
-//         .Select(_ => new ItemAdded(name, Faker.RandomNumber.Next(1, 10).ToString())));
-// }
-// await c.AddEvents(events);
-// Console.WriteLine($"AddEvents: {sw.ElapsedMilliseconds}ms");
-
-//var xx = c.GetEvents("Cj");
-//foreach (var x in xx) Console.WriteLine(x);
