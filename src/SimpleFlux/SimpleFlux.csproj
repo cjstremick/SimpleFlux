@@ -6,6 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>SimpleFlux</PackageId>
+    <PackageTags>Event store;Event Streaming;Database</PackageTags>
+    <Title>A simple event stream database engine based on Azure Table Storage.</Title>
+    <Authors>Cj Stremick</Authors>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Azure.Data.Tables" Version="12.8.3" />
   </ItemGroup>

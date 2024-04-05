@@ -10,9 +10,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleFlux.Sample", "sample\ConsoleApp1\SimpleFlux.Sample.csproj", "{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleFlux.Sample", "sample\SimpleFlux.Sample\SimpleFlux.Sample.csproj", "{BFAB4D0C-B18D-4A89-950E-4DDE5C644811}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleFlux", "src\SimpleFlux\SimpleFlux.csproj", "{351F47CF-3893-4756-AE26-A3C45FE17175}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{764771EB-2CD1-4ED0-8FA7-2C479BEE9B41}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,6 +33,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BFAB4D0C-B18D-4A89-950E-4DDE5C644811} = {764771EB-2CD1-4ED0-8FA7-2C479BEE9B41}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C1CD3C39-7F2D-460A-99B0-E9E359243914}

@@ -8,6 +8,7 @@ public class ItemInventoryProjection : FluxProjection
         : base(id)
     {
     }
+
     public int Quantity { get; private set; }
 
     public void Apply(ItemAdded e)

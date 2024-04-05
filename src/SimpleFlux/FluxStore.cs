@@ -156,6 +156,18 @@ public class FluxStore
         return projection;
     }
 
+    public Task<bool> StreamExists(string id)
+    {
+        var streamHeader = GetHeader(id);
+        return Task.FromResult(streamHeader != null);
+    }
+
+    public Task<int?> GetStreamVersion(string id)
+    {
+        var streamHeader = GetHeader(id);
+        return Task.FromResult(streamHeader?.Version);
+    }
+
     private class KnownFluxEventType
     {
         public string Name { get; set; } = null!;
