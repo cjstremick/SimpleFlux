@@ -3,26 +3,48 @@ name: SimpleFlux-main
 on:
   push:
     branches: [ "main" ]
-  
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+
+    - name: Increment Version
+      id: version
+      uses: EEzters/action-dotnet-versioning@v1
+      with:
+        versionFileLocation: '**/*.csproj'
+        versionNumberType: 'minor'
+
+    - name: Commit and Tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag ${{ steps.version.outputs.newVersion }}
+        git commit -m "Bump version to ${{ steps.version.outputs.newVersion }}" -a
+
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        force: true
+        tags: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Restore dependencies
       run: dotnet restore
+
     - name: Build
       run: dotnet build --no-restore --configuration Release
+
     - name: Pack
       run: dotnet pack --no-restore --configuration Release --output .
+
     - name: Publish
       run: dotnet nuget push *.nupkg --api-key ${{secrets.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
