@@ -19,6 +19,7 @@ jobs:
     - name: Increment Version
       uses: mediatech15/dotnet-bump-version-action@v1.0.2
       with:
+        version_files: "src/**/*.csproj"
         bump: patch
         
     - name: Commit and Tag
