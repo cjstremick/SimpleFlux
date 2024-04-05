@@ -17,12 +17,10 @@ jobs:
         dotnet-version: 8.0.x
 
     - name: Increment Version
-      id: version
-      uses: EEzters/action-dotnet-versioning@v1
+      uses: mediatech15/dotnet-bump-version-action@v1.0.2
       with:
-        versionFileLocation: '**/*.csproj'
-        versionNumberType: 'minor'
-
+        bump: patch
+        
     - name: Commit and Tag
       run: |
         git config --local user.email "action@github.com"
