@@ -7,35 +7,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - uses: actions/checkout@v4
+    
+    - name: Echo build number
+      shell: bash
+      run: |
+          echo "BuildNumber: ${{ env.BuildNumber }}"
 
+    - uses: action-pack/set-variable@v1
+      with:
+        name: 'BuildNumber'
+        value: '1.0.0'
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+
+    - uses: actions/checkout@v4
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
-
-    - name: Increment Version
-      uses: mediatech15/dotnet-bump-version-action@v1.0.2
-      with:
-        version_files: "src/**/*.csproj"
-        bump: patch
         
-    - name: Commit and Tag
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag ${{ steps.version.outputs.newVersion }}
-        git commit -m "Bump version to ${{ steps.version.outputs.newVersion }}" -a
-
-    - name: Push changes
-      uses: ad-m/github-push-action@master
-      with:
-        force: true
-        tags: true
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Restore dependencies
       run: dotnet restore
 
