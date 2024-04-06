@@ -13,7 +13,9 @@ jobs:
     - name: Echo build number
       shell: bash
       run: |
-        echo "BuildNumber: $BUILD_NUMBER"
+        echo "BuildNumber1: ${{ BUILD_NUMBER }}"
+        echo "BuildNumber2: ${BUILD_NUMBER}"
+        echo "BuildNumber3: ${ BUILD_NUMBER }"
 
     - uses: action-pack/set-variable@v1
       with:
