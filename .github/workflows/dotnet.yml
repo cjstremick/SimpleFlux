@@ -10,10 +10,22 @@ jobs:
     
     steps:
     
-    - name: Echo build number
+    - name: Echo build number 0
       shell: bash
       run: |
-          echo "BuildNumber: ${{ env.BUILD_NUMBER }}"
+        echo "BuildNumber: $BUILD_NUMBER"
+
+    - name: Echo build number 1
+      shell: bash
+      run: |
+        echo "BuildNumber: ${{ BUILD_NUMBER }}"
+
+    - name: Echo build number 2
+      shell: bash
+      run: |
+        echo "BuildNumber: ${{ BUILD_NUMBER }}"
+      env:
+        BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
 
     - uses: action-pack/set-variable@v1
       with:
