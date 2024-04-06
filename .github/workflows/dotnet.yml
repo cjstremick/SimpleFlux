@@ -10,10 +10,15 @@ jobs:
 
     steps:
     
-    - name: Echo build number
+    - name: Current version number
       shell: bash
       run: |
-        echo "BuildNumber1: ${{ vars.BUILD_NUMBER }}"
+        echo "Last Build Number: ${{ vars.BUILD_NUMBER_PREFIX }}.${{ vars.BUILD_NUMBER_PATCH }}"
+  
+    - name: Next patch number
+      shell: bash
+      run: |
+        echo "Next Patch: $((${{ vars.BUILD_NUMBER_PATCH }}+1))"
   
     - name: Checkout code
       uses: actions/checkout@v4
