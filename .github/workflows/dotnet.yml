@@ -16,14 +16,10 @@ jobs:
       shell: bash
       run: |
         echo "BuildNumber1: ${{ vars.BUILD_NUMBER }}"
-
-    - uses: action-pack/set-variable@v1
-      with:
-        name: 'BuildNumber'
-        value: '1.0.0'
-        token: ${{ secrets.REPO_ACCESS_TOKEN }}
-
-    - uses: actions/checkout@v4
+  
+    - name: Checkout code
+      uses: actions/checkout@v4
+  
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
