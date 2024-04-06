@@ -13,7 +13,7 @@ jobs:
     - name: Echo build number
       shell: bash
       run: |
-          echo "BuildNumber: ${{ env.BuildNumber }}"
+          echo "BuildNumber: ${{ env.BUILD_NUMBER }}"
 
     - uses: action-pack/set-variable@v1
       with:
