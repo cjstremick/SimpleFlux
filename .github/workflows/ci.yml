@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      # Runs once a test project exists (e.g. tests/SimpleFlux.Tests/SimpleFlux.Tests.csproj).
+      # Skipped automatically until then.
+      - name: Test
+        if: hashFiles('**/*Tests.csproj') != ''
+        run: dotnet test --no-build --configuration Release
+
+      # Verification only — nothing is pushed from this workflow.
+      - name: Pack
+        run: dotnet pack --no-restore --no-build --configuration Release --output artifacts
