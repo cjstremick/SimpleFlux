@@ -1,0 +1,41 @@
+name: Bug Report
+description: Report a bug in SimpleFlux
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong? Include the exception/stack trace if any.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SimpleFlux version
+      description: e.g. 1.0.0 (including prerelease suffix if applicable)
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Where does this reproduce?
+      options:
+        - .NET console/ASP.NET app
+        - Sample app
+        - Unit test
+      default: 0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or code
+      description: Minimal repro code, storage configuration, or logs that help reproduce.
+      render: csharp
