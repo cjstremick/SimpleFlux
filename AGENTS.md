@@ -11,8 +11,8 @@
 ## Tech Stack
 
 - **Language:** C# (ImplicitUsings enabled, Nullable enabled)
-- **Target framework:** `net8.0` (⚠ .NET 8 EOL is Nov 2026 — migration to .NET 10 LTS should be planned)
-- **Only runtime dependency:** `Azure.Data.Tables` **12.8.3** (latest is **12.11.0** — 3 minors behind; a stale dependabot PR for 12.9.1 is still open)
+- **Target framework:** `net10.0` (current LTS)
+- **Only runtime dependency:** `Azure.Data.Tables` **12.11.0** (current)
 - **Sample-only dependency:** `Faker.Net` 2.0.163 (current)
 
 ## Repo Structure
@@ -101,5 +101,5 @@ Everything lives in **one Azure Table** (default table name `FluxStore`):
 - Verify any change against the sample (needs Azurite running) and add a test project before/while fixing library behavior.
 - Prefer fixing `FluxStore` concurrency/ordering before building new features on top.
 - Keep the public API simple — the project's whole premise is "simple event sourcing on Azure Tables."
-- If migrating: multi-target `net8.0;net10.0` (or drop to `net10.0`), bump `Azure.Data.Tables` to 12.11.0, and update `dotnet-version` in all three workflows.
+- The library targets `net10.0` only — if net8 consumers ever matter, multi-target `net8.0;net10.0`.
 - Never change package versioning inline in the csproj — publish through the workflows (RELEASING.md).

@@ -24,6 +24,11 @@ public class ProjectionModule : SampleModule
         );
 
         var projection = await FluxStore.ProjectTo<ItemInventoryProjection>(sku);
+        if (projection == null)
+        {
+            Console.WriteLine($"\r\n\tItem {sku} has no events yet.");
+            return;
+        }
         Console.WriteLine($"\r\n\tItem {sku} has {projection.Quantity} items in inventory.");
     }
 }
