@@ -19,7 +19,7 @@ public class WriteSingleModule : SampleModule
         var eventTasks = Enumerable
             .Range(0, 20)
             .Select(_ => new ItemAdded(sku, RandomNumber.Next(1, 100)))
-            .Select(FluxStore.AddEvent);
+            .Select(e => FluxStore.AddEvent(e));
 
         // FluxStore.AddEvent adds a single event to the table.  If sending more than one
         // event, consider using FluxStore.AddEvents instead.
