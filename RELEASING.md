@@ -124,6 +124,9 @@ works as-is; for wildcards add `AllowPrereleaseVersions="true"`:
 **Build & pack:** `dotnet build` + `dotnet pack` with `-p:Version=<input>`, so the package, assembly, and file versions all match the release.
 
 **Publish:** `dotnet nuget push` to api.nuget.org with the `NUGET_API_KEY` secret.
+Packages include the README, icon, license (MIT), XML docs, and **debug symbols**
+(`.snupkg` + SourceLink), so consumers can step into the library source.
+nuget.org shows the icon, description, repository link, and changelog link automatically.
 
 **GitHub release:** the `gh` CLI creates the tag + release (Pre-release for prereleases) and attaches the `.nupkg`, so every version is browsable and downloadable from GitHub too.
 
