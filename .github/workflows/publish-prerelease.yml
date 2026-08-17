@@ -1,0 +1,94 @@
+name: Publish Prerelease
+
+# Manual: publish a prerelease package to NuGet and create a GitHub Pre-release.
+# Trigger: Actions tab -> "Publish Prerelease" -> Run workflow -> version input.
+# Example version input: 1.1.0-alpha.1   (MUST contain a prerelease suffix)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Prerelease version to publish, e.g. 1.1.0-alpha.1 (semver with a prerelease suffix)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+# One publish at a time — prevents accidental parallel NuGet pushes.
+concurrency:
+  group: publish-prerelease
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Validate version input
+        id: version
+        shell: bash
+        run: |
+          INPUT="${{ inputs.version }}"
+          if [[ ! "$INPUT" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z][0-9A-Za-z.-]*$ ]]; then
+            echo "::error::Invalid prerelease version '$INPUT'. Use semver with a prerelease suffix, e.g. 1.1.0-alpha.1"
+            exit 1
+          fi
+          echo "version=$INPUT" >> "$GITHUB_OUTPUT"
+          echo "Publishing prerelease version: $INPUT"
+
+      - name: Verify NuGet API key is configured
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::The NUGET_API_KEY secret is not set. Create an API key at https://www.nuget.org/account/apikeys and add it under Settings > Secrets and variables > Actions (see RELEASING.md)."
+            exit 1
+          fi
+
+      - name: Check version not already published
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.nuget.org/v3-flatcontainer/simpleflux/$VERSION/simpleflux.$VERSION.nupkg")
+          if [ "$CODE" = "200" ]; then
+            echo "::error::SimpleFlux $VERSION already exists on NuGet (HTTP $CODE). Pick a new version."
+            exit 1
+          fi
+          echo "Version $VERSION is not on NuGet yet (HTTP $CODE) - good to go."
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Pack
+        run: dotnet pack --no-restore --no-build --configuration Release -p:Version=${{ steps.version.outputs.version }} --output artifacts
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "artifacts/SimpleFlux.${{ steps.version.outputs.version }}.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json
+
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v$VERSION" \
+            "artifacts/SimpleFlux.$VERSION.nupkg" \
+            --prerelease \
+            --title "SimpleFlux $VERSION" \
+            --notes "Pre-release of SimpleFlux $VERSION. Try it with: dotnet add package SimpleFlux --version $VERSION"

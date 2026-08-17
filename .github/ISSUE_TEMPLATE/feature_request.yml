@@ -1,0 +1,30 @@
+name: Feature Request
+description: Suggest a feature or improvement for SimpleFlux
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or pain point.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: How should the feature work? Sketch the API shape if you have one in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you try, and why wasn't it enough?
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      description: SimpleFlux deliberately stays small. Does this fit?
+      options:
+        - "This is a small, focused addition (not a framework rewrite)"
