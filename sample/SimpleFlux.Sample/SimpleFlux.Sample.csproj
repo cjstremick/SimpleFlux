@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Faker.Net" Version="2.0.163" />
+    <PackageReference Include="Faker.Net" />
   </ItemGroup>
 
 </Project>

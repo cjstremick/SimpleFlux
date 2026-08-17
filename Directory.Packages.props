@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Central Package Management (CPM).
+    All package versions live here; csproj files reference packages WITHOUT a
+    Version attribute. Keep dependabot updates scoped to this file so a single
+    PR updates a package everywhere.
+    See: https://learn.microsoft.com/nuget/consume-packages/central-package-management
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Azure.Data.Tables" Version="12.11.0" />
+    <PackageVersion Include="Faker.Net" Version="2.0.163" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.400" />
+  </ItemGroup>
+
+</Project>

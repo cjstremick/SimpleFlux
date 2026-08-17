@@ -48,9 +48,10 @@ public class FluxStore
     /// Appends a single event to its stream and advances the stream version.
     /// </summary>
     /// <param name="event">The event to append. Its <see cref="FluxEvent.Id"/> selects the stream.</param>
-    public async Task AddEvent(FluxEvent @event)
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    public async Task AddEvent(FluxEvent @event, CancellationToken cancellationToken = default)
     {
-        var header = GetHeader(@event.Id) ?? new FluxHeader(@event.Id);
+        var header = await GetHeaderAsync(@event.Id, cancellationToken) ?? new FluxHeader(@event.Id);
         @event.Version = ++header.Version;
         var tableEntity = FromFluxEvent(@event);
         TableTransactionAction[] tableTransactionActions =
@@ -58,7 +59,7 @@ public class FluxStore
             new(TableTransactionActionType.Add, tableEntity),
             new(TableTransactionActionType.UpdateReplace, header)
         };
-        await _tableClient.SubmitTransactionAsync(tableTransactionActions);
+        await _tableClient.SubmitTransactionAsync(tableTransactionActions, cancellationToken);
     }
 
     /// <summary>
@@ -71,7 +72,8 @@ public class FluxStore
     /// currently chunked.
     /// </remarks>
     /// <param name="events">The events to append. Events with the same id share a stream.</param>
-    public async Task AddEvents(IEnumerable<FluxEvent> events)
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    public async Task AddEvents(IEnumerable<FluxEvent> events, CancellationToken cancellationToken = default)
     {
         var fluxEvents = events as FluxEvent[] ?? events.ToArray();
         if (!fluxEvents.Any()) return;
@@ -80,7 +82,7 @@ public class FluxStore
         var tasks = new List<Task>();
         foreach (var eventGroup in eventGroups)
         {
-            var header = GetHeader(eventGroup.Key) ?? new FluxHeader(eventGroup.Key);
+            var header = await GetHeaderAsync(eventGroup.Key, cancellationToken) ?? new FluxHeader(eventGroup.Key);
             var tableEntities = eventGroup
                 .Select(FromFluxEvent)
                 .Select(te =>
@@ -93,31 +95,53 @@ public class FluxStore
             {
                 new(TableTransactionActionType.UpdateReplace, header)
             };
-            tasks.Add(_tableClient.SubmitTransactionAsync(tableTransactionActions));
+            tasks.Add(_tableClient.SubmitTransactionAsync(tableTransactionActions, cancellationToken));
         }
 
         await Task.WhenAll(tasks);
     }
 
 
-    private Task<IEnumerable<FluxEvent>> GetEvents(string id)
+    private async Task<IReadOnlyList<FluxEvent>> GetEventsAsync(string id, CancellationToken cancellationToken)
     {
-        var results = _tableClient
-            .Query<TableEntity>(e => e.PartitionKey == id && e.RowKey != FluxHeader.FluxHeaderKey)
-            .OrderBy(e => e.Timestamp);
-        var events = results.Select(ToFluxEvent);
-        return Task.FromResult(events);
+        var results = new List<TableEntity>();
+        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+            e => e.PartitionKey == id && e.RowKey != FluxHeader.FluxHeaderKey,
+            cancellationToken: cancellationToken))
+        {
+            results.Add(entity);
+        }
+
+        return results
+            .OrderBy(e => e.Timestamp)
+            .Select(ToFluxEvent)
+            .ToList();
     }
 
-    private FluxHeader? GetHeader(string id)
+    private async Task<FluxHeader?> GetHeaderAsync(string id, CancellationToken cancellationToken)
     {
         try
         {
-            var header = _tableClient.GetEntity<FluxHeader>(id, FluxHeader.FluxHeaderKey);
+            var header = await _tableClient.GetEntityAsync<FluxHeader>(
+                id,
+                FluxHeader.FluxHeaderKey,
+                cancellationToken: cancellationToken);
             return header.Value;
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation must propagate: a cancelled caller is not "stream doesn't exist".
+            // TaskCanceledException derives from OperationCanceledException, so it is covered here.
+            throw;
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+        {
+            // 404 means the header row is absent — the stream does not exist.
+            return null;
         }
         catch (Exception)
         {
+            // Known debt: swallow all other errors (auth, network, etc.) as "stream doesn't exist".
             return null;
         }
     }
@@ -177,14 +201,17 @@ public class FluxStore
     /// </summary>
     /// <typeparam name="T">The projection type; must have a constructor taking the stream id.</typeparam>
     /// <param name="id">The stream id to project.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The rebuilt projection, or <c>null</c> when the stream has no events.</returns>
-    public async Task<T?> ProjectTo<T>(string id) where T : FluxProjection
+    public async Task<T?> ProjectTo<T>(string id, CancellationToken cancellationToken = default) where T : FluxProjection
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (Activator.CreateInstance(typeof(T), id) is not T projection)
             throw new Exception($"Failed to create Projection {typeof(T)}.");
-        var events = await GetEvents(id);
+        var events = await GetEventsAsync(id, cancellationToken);
         var eventsArray = events.ToArray();
         if (eventsArray.Length == 0) return null;
+        cancellationToken.ThrowIfCancellationRequested();
         projection.Load(eventsArray);
         return projection;
     }
@@ -193,22 +220,24 @@ public class FluxStore
     /// Checks whether a stream exists (i.e. has a header row).
     /// </summary>
     /// <param name="id">The stream id.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns><c>true</c> when the stream has at least one event.</returns>
-    public Task<bool> StreamExists(string id)
+    public async Task<bool> StreamExists(string id, CancellationToken cancellationToken = default)
     {
-        var streamHeader = GetHeader(id);
-        return Task.FromResult(streamHeader != null);
+        var streamHeader = await GetHeaderAsync(id, cancellationToken);
+        return streamHeader != null;
     }
 
     /// <summary>
     /// Gets the current version of a stream (the version of the last appended event).
     /// </summary>
     /// <param name="id">The stream id.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The stream version, or <c>null</c> when the stream does not exist.</returns>
-    public Task<int?> GetStreamVersion(string id)
+    public async Task<int?> GetStreamVersion(string id, CancellationToken cancellationToken = default)
     {
-        var streamHeader = GetHeader(id);
-        return Task.FromResult(streamHeader?.Version);
+        var streamHeader = await GetHeaderAsync(id, cancellationToken);
+        return streamHeader?.Version;
     }
 
     private class KnownFluxEventType
