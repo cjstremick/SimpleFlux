@@ -92,27 +92,46 @@ public class FluxStore
 
     private static List<KnownFluxEventType> DiscoverEventTypes(FluxOptions options)
     {
-        var assemblies = options.EventAssemblies.Count > 0
-            ? options.EventAssemblies
-            : AppDomain.CurrentDomain.GetAssemblies();
-
-        return assemblies
-            .SelectMany(a => a.GetTypes())
+        var explicitTypes = options.EventTypes
             .Where(t => t.IsSubclassOf(typeof(FluxEvent)))
-            .Select(t =>
-            {
-                var fluxEventAttribute = t
-                    .GetCustomAttributes(true)
-                    .OfType<FluxEventAttribute>()
-                    .SingleOrDefault();
-                return new KnownFluxEventType
-                {
-                    Name = fluxEventAttribute?.Name ?? t.Name,
-                    Type = t
-                };
-            })
-            .Distinct()
             .ToList();
+        var assemblies = options.EventAssemblies.ToList();
+
+        // Explicit registrations win: as soon as anything is registered, the implicit
+        // "scan all loaded assemblies" fallback is disabled.
+        if (explicitTypes.Count == 0 && assemblies.Count == 0)
+        {
+            assemblies.AddRange(AppDomain.CurrentDomain.GetAssemblies());
+        }
+
+        var discovered = new List<KnownFluxEventType>(explicitTypes.Count + assemblies.Count * 4);
+        discovered.AddRange(explicitTypes.Select(ToKnownEventType));
+        foreach (var assembly in assemblies)
+        {
+            discovered.AddRange(assembly
+                .GetTypes()
+                .Where(t => t.IsSubclassOf(typeof(FluxEvent)))
+                .Select(ToKnownEventType));
+        }
+
+        // A type registered explicitly AND found in a scanned assembly must not be duplicated.
+        return discovered
+            .GroupBy(k => k.Type)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private static KnownFluxEventType ToKnownEventType(Type type)
+    {
+        var fluxEventAttribute = type
+            .GetCustomAttributes(true)
+            .OfType<FluxEventAttribute>()
+            .SingleOrDefault();
+        return new KnownFluxEventType
+        {
+            Name = fluxEventAttribute?.Name ?? type.Name,
+            Type = type
+        };
     }
 
     private FluxEventRecord ToRecord(FluxEvent @event)

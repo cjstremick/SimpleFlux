@@ -106,11 +106,14 @@ Azure Tables maps to columns, a JSON backend serializes, InMemory stores as-is).
 
 ```csharp
 // Core: fluent builder
-services.AddSimpleFlux(o => o.EventAssemblies.Add(typeof(ItemAdded).Assembly))
-        .UseInMemory();                              // SimpleFlux.InMemory
+services.AddSimpleFlux()
+        .WithAssemblyEvents<ItemAdded>()        // events from this assembly
+        // .WithEvent<ItemAdded>()              // or: exactly one event type
+        .UseInMemory();                         // SimpleFlux.InMemory
 
 // or Azure Tables (SimpleFlux.AzureTables):
 services.AddSimpleFlux()
+        .WithAssemblyEvents<ItemAdded>()
         .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
 
 // no-DI usage still works:
@@ -119,9 +122,12 @@ var store = new FluxStore(new InMemoryStreamStore());
 
 - `AddSimpleFlux(Action<FluxOptions>?)` lives in core (depends only on
   `Microsoft.Extensions.DependencyInjection.Abstractions` — no runtime provider).
+- Event registration is fluent: `WithEvent<T>()` (one type, no scanning),
+  `WithAssemblyEvents<TMarker>()` / `WithAssemblyEvents(Assembly)` (all events in an
+  assembly). As soon as anything is registered explicitly, the implicit
+  "scan all loaded assemblies" fallback is disabled.
 - `FluxOptions`:
-  - `EventAssemblies` — assemblies scanned for `FluxEvent` types (default: all
-    loaded assemblies, current behavior).
+  - `EventTypes` / `EventAssemblies` — the explicit registrations above.
   - `StoreLifetime` — DI lifetime for the store + `FluxStore` (default
     `Singleton`; both are stateless after construction).
 - `IFluxBuilder` is the extension point: each backend package adds a

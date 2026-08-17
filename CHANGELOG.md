@@ -13,6 +13,7 @@ versioning follows [SemVer](https://semver.org). The release process lives in
   - `IStreamStore` contract, `FluxEventRecord`, `FluxStreamMetadata`, `FluxConcurrencyException`
   - New packages: **`SimpleFlux.AzureTables`** and **`SimpleFlux.InMemory`** (second reference backend)
   - DI registration: `AddSimpleFlux()` + `UseAzureTables(...)` / `UseInMemory()` (`FluxOptions`, fluent `IFluxBuilder`)
+  - Fluent event registration: `WithEvent<T>()`, `WithAssemblyEvents<TMarker>()` / `WithAssemblyEvents(Assembly)` — explicit registration disables the implicit assembly scan
   - Optimistic concurrency on appends (`expected version` semantics) — concurrent writes now throw `FluxConcurrencyException` instead of racing
   - Event `Version` is restored on read; reads are ordered by version (backends)
   - Header lookups only treat HTTP 404 as "stream does not exist"; cancellation propagates

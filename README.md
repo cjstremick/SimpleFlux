@@ -36,7 +36,8 @@ public class ItemAdded : FluxEvent
 // 2. Register SimpleFlux with a backend
 var services = new ServiceCollection();
 services
-    .AddSimpleFlux(o => o.EventAssemblies.Add(typeof(ItemAdded).Assembly))
+    .AddSimpleFlux()
+    .WithAssemblyEvents<ItemAdded>()   // events from this assembly
     .UseInMemory();
 //   .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
 

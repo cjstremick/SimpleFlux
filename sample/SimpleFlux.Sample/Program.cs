@@ -11,11 +11,16 @@ var services = new ServiceCollection();
 // Pick a backend:
 //   - InMemory: runs anywhere with zero setup (this is the default below)
 //   - AzureTables: needs Azurite or a real Azure Storage account
+//
+// Event registration: WithAssemblyEvents<TMarker>() registers every event type in
+// the assembly holding the marker type; WithEvent<T>() registers a single type.
 services
-    .AddSimpleFlux(o => o.EventAssemblies.Add(typeof(ItemAdded).Assembly))
+    .AddSimpleFlux()
+    .WithAssemblyEvents<ItemAdded>()
     .UseInMemory();
 // services
-//     .AddSimpleFlux(o => o.EventAssemblies.Add(typeof(ItemAdded).Assembly))
+//     .AddSimpleFlux()
+//     .WithAssemblyEvents<ItemAdded>()
 //     .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
 
 var provider = services.BuildServiceProvider();

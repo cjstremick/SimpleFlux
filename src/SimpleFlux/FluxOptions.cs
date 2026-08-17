@@ -9,11 +9,20 @@ namespace SimpleFlux;
 public sealed class FluxOptions
 {
     /// <summary>
+    /// The event types registered explicitly (via <c>WithEvent&lt;T&gt;()</c> or direct mutation).
+    /// </summary>
+    /// <remarks>
+    /// Registered types are known to <see cref="FluxStore"/> without any assembly scanning.
+    /// </remarks>
+    public IList<Type> EventTypes { get; } = new List<Type>();
+
+    /// <summary>
     /// The assemblies to scan for <see cref="FluxEvent"/> types.
     /// </summary>
     /// <remarks>
-    /// When empty, all loaded assemblies are scanned (previous behavior). Set this to
-    /// make discovery fast and explicit in larger applications.
+    /// When both <see cref="EventTypes"/> and <see cref="EventAssemblies"/> are empty,
+    /// all loaded assemblies are scanned (previous behavior). As soon as anything is
+    /// registered explicitly, only the registered types/assemblies are used.
     /// </remarks>
     public IList<Assembly> EventAssemblies { get; } = new List<Assembly>();
 
