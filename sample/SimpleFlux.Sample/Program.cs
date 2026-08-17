@@ -1,17 +1,33 @@
-﻿using System.Diagnostics;
-using Azure.Data.Tables;
+﻿using Azure.Data.Tables;
+using Microsoft.Extensions.DependencyInjection;
+using SimpleFlux;
+using SimpleFlux.AzureTables;
+using SimpleFlux.InMemory;
+using SimpleFlux.Sample.Events;
 using SimpleFlux.Sample.Modules;
 
-var tableClient = new TableClient("UseDevelopmentStorage=true", "FluxStore");
-tableClient.CreateIfNotExists();
+var services = new ServiceCollection();
+
+// Pick a backend:
+//   - InMemory: runs anywhere with zero setup (this is the default below)
+//   - AzureTables: needs Azurite or a real Azure Storage account
+services
+    .AddSimpleFlux(o => o.EventAssemblies.Add(typeof(ItemAdded).Assembly))
+    .UseInMemory();
+// services
+//     .AddSimpleFlux(o => o.EventAssemblies.Add(typeof(ItemAdded).Assembly))
+//     .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
+
+var provider = services.BuildServiceProvider();
+var store = provider.GetRequiredService<FluxStore>();
 
 var modules = new[]
 {
-    new {Number = "1", Module = new WriteSingleModule(tableClient) as SampleModule},
-    new {Number = "2", Module = new WriteBatchModule(tableClient) as SampleModule},
-    new {Number = "3", Module = new WriteHybridBatchMadule(tableClient) as SampleModule},
-    new {Number = "4", Module = new ProjectionModule(tableClient) as SampleModule},
-    new {Number = "5", Module = new LargeStreamModule(tableClient) as SampleModule}
+    new {Number = "1", Module = new WriteSingleModule(store) as SampleModule},
+    new {Number = "2", Module = new WriteBatchModule(store) as SampleModule},
+    new {Number = "3", Module = new WriteHybridBatchModule(store) as SampleModule},
+    new {Number = "4", Module = new ProjectionModule(store) as SampleModule},
+    new {Number = "5", Module = new LargeStreamModule(store) as SampleModule}
 };
 
 
@@ -33,7 +49,7 @@ while (!isDone)
     var selection = modules.SingleOrDefault(e => e.Number == response);
     if (selection != null)
     {
-        var sw = Stopwatch.StartNew();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         Console.Write($"Running {selection.Number}...");
         await selection.Module.Run();
         Console.WriteLine($"Done.  Took {sw.ElapsedMilliseconds}ms.\r\n");

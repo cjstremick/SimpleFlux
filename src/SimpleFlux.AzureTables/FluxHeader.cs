@@ -1,7 +1,7 @@
-﻿using Azure;
+using Azure;
 using Azure.Data.Tables;
 
-namespace SimpleFlux;
+namespace SimpleFlux.AzureTables;
 
 /// <summary>
 /// The stream header entity in Azure Table Storage.
@@ -9,7 +9,8 @@ namespace SimpleFlux;
 /// <remarks>
 /// Each stream has exactly one header row (RowKey = <see cref="FluxHeaderKey"/>) that
 /// tracks the stream's current <see cref="Version"/>. It is updated transactionally
-/// whenever events are appended, and it is excluded from event reads.
+/// whenever events are appended, and it is excluded from event reads. The entity's
+/// <see cref="ETag"/> backs optimistic concurrency for appends.
 /// </remarks>
 public class FluxHeader : ITableEntity
 {

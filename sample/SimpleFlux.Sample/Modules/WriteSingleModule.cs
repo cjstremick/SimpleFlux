@@ -1,13 +1,12 @@
-﻿using Azure.Data.Tables;
-using Faker;
+﻿using Faker;
 using SimpleFlux.Sample.Events;
 
 namespace SimpleFlux.Sample.Modules;
 
 public class WriteSingleModule : SampleModule
 {
-    public WriteSingleModule(TableClient tableClient)
-        : base(tableClient)
+    public WriteSingleModule(FluxStore fluxStore)
+        : base(fluxStore)
     {
     }
 
@@ -18,11 +17,11 @@ public class WriteSingleModule : SampleModule
         var sku = Guid.NewGuid().ToString();
         var eventTasks = Enumerable
             .Range(0, 20)
-            .Select(_ => new ItemAdded(sku, RandomNumber.Next(1, 100)))
-            .Select(e => FluxStore.AddEvent(e));
+            .Select(_ => new ItemAdded(sku, RandomNumber.Next(1, 100)));
 
-        // FluxStore.AddEvent adds a single event to the table.  If sending more than one
-        // event, consider using FluxStore.AddEvents instead.
-        await Task.WhenAll(eventTasks);
+        // FluxStore.AddEvent appends one event at a time (sequential — concurrent
+        // appends to the same stream raise FluxConcurrencyException). For a single
+        // atomic append, use FluxStore.AddEvents instead.
+        foreach (var @event in eventTasks) await FluxStore.AddEvent(@event);
     }
 }

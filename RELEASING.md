@@ -9,8 +9,11 @@ three GitHub Actions workflows — you never have to run `dotnet nuget push` by 
 | Workflow | Runs when | What it does |
 |---|---|---|
 | `ci.yml` | Automatically: every PR and push to `main` | Restore → build → pack. **Publishes nothing.** This is your safety net. |
-| `Publish Prerelease` | Manually: Actions tab → Run workflow | Builds and publishes a prerelease package (e.g. `1.1.0-alpha.1`) to NuGet, creates a GitHub **Pre-release** + tag (`v1.1.0-alpha.1`). |
-| `Publish Release` | Manually: Actions tab → Run workflow | **Promotes** a prerelease to stable (e.g. `1.1.0-alpha.1` → `1.1.0`), publishes to NuGet, creates the GitHub Release + tag (`v1.1.0`). Can also release a stable version directly. |
+| `Publish Prerelease` | Manually: Actions tab → Run workflow | Builds and publishes a prerelease (e.g. `1.1.0-alpha.1`) of **all** SimpleFlux packages (`SimpleFlux`, `SimpleFlux.AzureTables`, `SimpleFlux.InMemory`) to NuGet, creates a GitHub **Pre-release** + tag (`v1.1.0-alpha.1`). |
+| `Publish Release` | Manually: Actions tab → Run workflow | **Promotes** a prerelease to stable (e.g. `1.1.0-alpha.1` → `1.1.0`), publishes all packages to NuGet, creates the GitHub Release + tag (`v1.1.0`). Can also release a stable version directly. |
+
+The version input applies to every package — they always publish together at the
+same version. The duplicate-version guard checks the core `SimpleFlux` package.
 
 All three workflows validate their inputs, fail fast with clear error messages, and
 refuse to publish a version that already exists on NuGet (NuGet versions are
@@ -110,6 +113,9 @@ dotnet add package SimpleFlux --prerelease
 # or pin one explicitly
 dotnet add package SimpleFlux --version 1.1.0-alpha.1
 ```
+
+Backends are separate packages: add `SimpleFlux.AzureTables` (or `SimpleFlux.InMemory`)
+alongside the core package at the same version.
 
 In a .csproj, `<PackageReference Include="SimpleFlux" Version="1.1.0-alpha.1" />`
 works as-is; for wildcards add `AllowPrereleaseVersions="true"`:

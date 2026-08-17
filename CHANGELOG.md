@@ -7,6 +7,37 @@ versioning follows [SemVer](https://semver.org). The release process lives in
 
 ## [Unreleased]
 
+### Added
+
+- **Storage backend abstraction (2.0.0)** — `SimpleFlux` core is now storage-agnostic:
+  - `IStreamStore` contract, `FluxEventRecord`, `FluxStreamMetadata`, `FluxConcurrencyException`
+  - New packages: **`SimpleFlux.AzureTables`** and **`SimpleFlux.InMemory`** (second reference backend)
+  - DI registration: `AddSimpleFlux()` + `UseAzureTables(...)` / `UseInMemory()` (`FluxOptions`, fluent `IFluxBuilder`)
+  - Optimistic concurrency on appends (`expected version` semantics) — concurrent writes now throw `FluxConcurrencyException` instead of racing
+  - Event `Version` is restored on read; reads are ordered by version (backends)
+  - Header lookups only treat HTTP 404 as "stream does not exist"; cancellation propagates
+
+### Changed
+
+- **Breaking:** `FluxStore` now takes `IStreamStore` (+ optional `FluxOptions`) instead of `TableClient`
+- **Breaking:** `FluxHeader` moved from the core package to `SimpleFlux.AzureTables` (Azure-specific)
+- Sample uses DI with the in-memory backend by default (Azurite now optional)
+- Packages share metadata via `Directory.Build.props` (license, repo, readme, icon, symbols)
+
+### Fixed
+
+- Sample: `ProjectionModule`/`WriteSingleModule` written to respect the concurrency contract (sequential/batched appends)
+- Removed the old typo'd module file names (`WriteBatchMadule`, `WriteHybridBatchMadule`)
+
+## [1.1.0-alpha.1] - 2026-08-17
+
+### Added
+
+- `CancellationToken` support across the entire API (optional, backwards compatible)
+- NuGet package metadata for consumers: description, icon, README, MIT license, repository link, changelog link
+- Debug symbols (`.snupkg`) + SourceLink so consumers can step into the library source
+- Central Package Management (`Directory.Packages.props`)
+
 ### Changed
 
 - Migrated to **.NET 10** (LTS) — library and sample now target `net10.0`
@@ -19,6 +50,7 @@ versioning follows [SemVer](https://semver.org). The release process lives in
 ### Fixed
 
 - Sample: `ProjectionModule` no longer dereferences a null projection on empty streams
+- Sample: method-group usage of `AddEvent` broken by optional parameters (now a lambda)
 
 ## [1.0.0] - 2024-09-23
 

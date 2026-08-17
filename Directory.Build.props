@@ -2,12 +2,32 @@
 
   <!--
     Shared settings for every project in the repo.
-    NuGet package metadata lives in src/SimpleFlux/SimpleFlux.csproj — that file is
-    the single source of truth for what consumers see on nuget.org.
+    NuGet package metadata shared by ALL packages lives here (authors, license,
+    repository, readme, icon, symbols). Per-package metadata (PackageId, Title,
+    Description) lives in each project file.
   -->
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Authors>Cj Stremick</Authors>
+    <Copyright>Copyright (c) 2024-2026 Cj Stremick</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/cjstremick/SimpleFlux</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cjstremick/SimpleFlux</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>event-sourcing;event-store;event-streaming;projections;cqrs;database;dotnet</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>PackageIcon.png</PackageIcon>
+    <PackageReleaseNotes>https://github.com/cjstremick/SimpleFlux/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
+
+  <!-- Ship the README and icon (repo root) inside every package so nuget.org renders them. -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)PackageIcon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>
