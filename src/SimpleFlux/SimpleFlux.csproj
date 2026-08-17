@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <!-- ImplicitUsings, Nullable, Authors etc. come from Directory.Build.props -->
+    <!-- ImplicitUsings / Nullable come from Directory.Build.props -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
@@ -15,22 +15,43 @@
     <VersionPrefix>1.0.0</VersionPrefix>
   </PropertyGroup>
 
+  <!--
+    NuGet package metadata — everything a consumer sees on nuget.org.
+    Keep this file the single source of truth for package info.
+  -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>SimpleFlux</PackageId>
-    <PackageTags>Event store;Event Streaming;Database</PackageTags>
-    <Title>A simple event stream database engine based on Azure Table Storage.</Title>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+    <PackageId>SimpleFlux</PackageId>
+    <Title>SimpleFlux — simple event sourcing on Azure Table Storage</Title>
+    <Description>SimpleFlux is a simple event sourcing library for .NET powered by Azure Table Storage. Append events to streams, rebuild projections by replaying them, and query stream state — no extra infrastructure required.</Description>
+    <Authors>Cj Stremick</Authors>
+    <Copyright>Copyright (c) 2024-2026 Cj Stremick</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/cjstremick/SimpleFlux</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cjstremick/SimpleFlux</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>event-sourcing;event-store;event-streaming;azure;table-storage;projections;cqrs;domain-driven-design;database;dotnet</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>PackageIcon.png</PackageIcon>
+    <PackageReleaseNotes>https://github.com/cjstremick/SimpleFlux/blob/main/CHANGELOG.md</PackageReleaseNotes>
+
+    <!-- Consumer debugging: symbols (.snupkg) + SourceLink (step into library source) -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
 
-  <!-- Ship the README inside the NuGet package so nuget.org shows it on the package page. -->
+  <!-- Ship the README and icon inside the package so nuget.org renders them. -->
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="PackageIcon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.400" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

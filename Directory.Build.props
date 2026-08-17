@@ -2,16 +2,12 @@
 
   <!--
     Shared settings for every project in the repo.
-    Per-package metadata that should NOT be shared lives in the project file
-    (e.g. PackageId and Title for the packable library).
+    NuGet package metadata lives in src/SimpleFlux/SimpleFlux.csproj — that file is
+    the single source of truth for what consumers see on nuget.org.
   -->
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Authors>Cj Stremick</Authors>
-    <RepositoryUrl>https://github.com/cjstremick/SimpleFlux</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
 </Project>

@@ -100,7 +100,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack
-        run: dotnet pack --no-restore --no-build --configuration Release -p:Version=${{ steps.version.outputs.version }} --output artifacts
+        run: dotnet pack --no-restore --no-build --configuration Release -p:Version=${{ steps.version.outputs.version }} -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg --output artifacts
 
       - name: Push to NuGet
         env:
@@ -108,7 +108,8 @@ jobs:
         run: |
           dotnet nuget push "artifacts/SimpleFlux.${{ steps.version.outputs.version }}.nupkg" \
             --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json
+            --source https://api.nuget.org/v3/index.json \
+            --symbol-source https://api.nuget.org/v3/index.json
 
       - name: Create GitHub Release
         env:
