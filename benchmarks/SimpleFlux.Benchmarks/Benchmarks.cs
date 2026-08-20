@@ -1,18 +1,18 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
+using Azure.Data.Tables;
 using SimpleFlux;
 using SimpleFlux.AzureTables;
 using SimpleFlux.InMemory;
 
 namespace SimpleFlux.Benchmarks;
 
-/// <summary>
-/// Performance benchmarks for SimpleFlux, parameterized over the storage backend.
-/// InMemory requires no setup; AzureTables needs Azurite running at the default local endpoint.
+/// AzureTables needs Azurite running on the local devstore endpoints
+/// (blob 10000, queue 10001, table 10002) — e.g.
+/// `docker run -d -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite`.
 ///
-/// NOTE: entry point lives in Program.cs (BenchmarkDotNet AutoStart). This class is the
-/// benchmark payload only. Build with the .NET 10 SDK installed; this project has not
-/// been compiled locally (no SDK on the dev Mac as of Aug 2026).
+/// NOTE: entry point lives in Program.cs (BenchmarkDotNet AutoStart). Build with the
+/// .NET 10 SDK installed.
 /// </summary>
 [MemoryDiagnoser]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
@@ -34,19 +34,27 @@ public class Benchmarks
     private string? _projectStreamId;
 
     [GlobalSetup]
-    public void Setup()
+    public async Task Setup()
     {
         _store = Backend switch
         {
             "InMemory" => new FluxStore(new InMemoryStreamStore(),
                 new FluxOptions { EventTypes = { typeof(BenchItemAdded), typeof(BenchItemRemoved) } }),
-            "AzureTables" => throw new NotSupportedException(
-                "AzureTables needs a local Azurite; see docs/BENCHMARKING.md"),
+            "AzureTables" => await CreateAzureTableStoreAsync(),
             _ => throw new NotSupportedException($"Unknown backend: {Backend}")
         };
         // Unique-per-parameter-combo stream ids so iterations don't collide.
         _streamId = $"b-{Backend}-{Guid.NewGuid():N}";
         _projectStreamId = $"b-proj-{Backend}-{Guid.NewGuid():N}";
+    }
+
+    private static async Task<FluxStore> CreateAzureTableStoreAsync()
+    {
+        // devstore → blob:10000, queue:10001, table:10002 with the well-known key.
+        var client = new TableClient("UseDevelopmentStorage=true", "FluxBenchmarks");
+        await client.CreateIfNotExistsAsync();
+        return new FluxStore(new AzureTableStreamStore(client),
+            new FluxOptions { EventTypes = { typeof(BenchItemAdded), typeof(BenchItemRemoved) } });
     }
 
     private FluxStore Store => _store ?? throw new InvalidOperationException("Not initialized.");
