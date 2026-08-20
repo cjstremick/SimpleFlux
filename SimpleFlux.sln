@@ -22,6 +22,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleFlux.AzureTables", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleFlux.InMemory", "src\SimpleFlux.InMemory\SimpleFlux.InMemory.csproj", "{033C9E6C-5FB8-4E11-87C1-274DCE6738AB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleFlux.Benchmarks", "benchmarks\SimpleFlux.Benchmarks\SimpleFlux.Benchmarks.csproj", "{FD11B579-8071-409D-8C89-074853F1E331}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -80,6 +82,18 @@ Global
 		{033C9E6C-5FB8-4E11-87C1-274DCE6738AB}.Release|x64.Build.0 = Release|Any CPU
 		{033C9E6C-5FB8-4E11-87C1-274DCE6738AB}.Release|x86.ActiveCfg = Release|Any CPU
 		{033C9E6C-5FB8-4E11-87C1-274DCE6738AB}.Release|x86.Build.0 = Release|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Debug|x64.Build.0 = Debug|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Debug|x86.Build.0 = Debug|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Release|x64.ActiveCfg = Release|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Release|x64.Build.0 = Release|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Release|x86.ActiveCfg = Release|Any CPU
+		{FD11B579-8071-409D-8C89-074853F1E331}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
