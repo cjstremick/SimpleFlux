@@ -62,11 +62,14 @@ Full BenchmarkDotNet log: `/tmp/sf_full2.log`; BDN artifacts under `benchmarks/S
 ## How to reproduce
 
 ```bash
-export PATH="$HOME/.dotnetsdk:$PATH"; export DOTNET_ROOT="$HOME/.dotnsdk"
+export PATH="$HOME/.dotnetsdk:$PATH"; export DOTNET_ROOT="$HOME/.dotnetsdk"
 cd ~/Projects/SimpleFlux
-# Azurite (already running for these results):
+# Azurite (already running for these results) — only needed for the AzureTables parameter:
 docker run -d --name azurite-bench -p 10000:10000 -p 10001:10001 -p 10002:10002 \
   mcr.microsoft.com/azure-storage/azurite
 dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks \
   -- -j short --filter '*'
 ```
+
+> See [docs/BENCHMARKING.md](BENCHMARKING.md) → "How to build & run" for the full
+> command reference (build, perf-only/safety-only filters, `--` separator).

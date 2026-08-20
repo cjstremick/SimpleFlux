@@ -1,14 +1,45 @@
 # SimpleFlux Benchmarking Design
 
-Status: planned (tracked on branch `bench/benchmark-suite`).
+Status: **implemented & run** on branch `bench/benchmark-suite` (see
+[docs/BENCHMARKING_RESULTS.md](BENCHMARKING_RESULTS.md) for the last captured run).
 Purpose: give SimpleFlux **measurable** performance and safety guarantees ahead of the 2.0.0 release, and a repeatable way to catch regressions (batch cliff, concurrency, reflection cost).
 
 > Runtime note: the **In-Memory** store (`SimpleFlux.InMemory`) makes the full suite runnable in CI with **no Azure emulator and no network**. The **Azure Tables** store is parameterized alongside it to validate real-storage behavior locally (Azurite) and is the source of truth for anything storage-bound.
 
+## How to build & run
+
+Requires the **.NET 10 SDK**. On this dev Mac the SDK lives at `~/.dotnetsdk`, so export it on `PATH` first. Args meant for the **benchmark** go **after `--`** (anything before is `dotnet run` args). `-j short` = ShortRun (fast smoke); omit for the default longer job.
+
+```bash
+export PATH="$HOME/.dotnetsdk:$PATH"
+export DOTNET_ROOT="$HOME/.dotnetsdk"
+cd ~/Projects/SimpleFlux
+
+# Build once (SDK on PATH). NOTE: `dotnet build` takes the project as a positional
+# arg — the `--project` form is for `dotnet run`, not `build`.
+dotnet build -c Release benchmarks/SimpleFlux.Benchmarks
+
+# Full suite (perf + safety), ShortRun, no Azure needed for InMemory
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*'
+
+# Perf only / safety only
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*Benchmarks*'
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*SafetyBenchmarks*'
+```
+
+The `AzureTables` parameter needs [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) on the devstore ports (blob 10000, queue 10001, table 10002):
+
+```bash
+docker run -d --name azurite-bench -p 10000:10000 -p 10001:10001 -p 10002:10002 \
+  mcr.microsoft.com/azure-storage/azurite
+```
+
+Results and JSON land under `benchmarks/SimpleFlux.Benchmarks/artifacts/` (BenchmarkDotNet default). The full (non-`short`) job takes several minutes per backend.
+
 ## Harness
 
-- **`benchmarks/SimpleFlux.Benchmarks`** — a `net10.0` class library referencing `SimpleFlux`, `SimpleFlux.AzureTables`, `SimpleFlux.InMemory`, and `BenchmarkDotNet` (version pinned from `Directory.Packages.props`).
-- Run with `dotnet run -c Release` from the project dir. Results land in `benchmarks/SimpleFlux.Benchmarks/artifacts/` (BenchmarkDotNet default).
+- **`benchmarks/SimpleFlux.Benchmarks`** — a `net10.0` class library (entry point in `Program.cs` via `BenchmarkSwitcher`) referencing `SimpleFlux`, `SimpleFlux.AzureTables`, `SimpleFlux.InMemory`, and `BenchmarkDotNet` (version pinned from `Directory.Packages.props`).
+- Consumed via the build/run commands above.
 - Parameterization: `[Params]` over backends (`InMemory`, `AzureTables`) so each scenario runs against both. Backend setup uses a fresh `FluxStore` per invocation with unique stream ids to avoid cross-test contamination.
 
 ## Scenarios

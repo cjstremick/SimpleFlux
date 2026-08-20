@@ -81,8 +81,11 @@ dotnet build --configuration Release
 # and run Azurite: docker run -p 10000:10000 -p 10001:10001 mcr.microsoft.com/azure-storage/azurite
 dotnet run --project sample/SimpleFlux.Sample
 
-# Benchmarks (branch bench/benchmark-suite):
-dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks
+# Benchmarks (branch bench/benchmark-suite) — .NET 10 SDK must be on PATH
+# (on this dev Mac: export PATH="$HOME/.dotnetsdk:$PATH"; export DOTNET_ROOT="$HOME/.dotnetsdk").
+# Args after `--` go to the benchmark; `-j short` = fast ShortRun. Full reference:
+# README.md → "Building & running the benchmarks" and docs/BENCHMARKING.md.
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*'
 ```
 
 The sample is a menu app: 1 = single write, 2 = batch write (20 events, one stream), 3 = hybrid batch (20 events across 2 streams), 4 = projection demo, 5 = large stream (180 events) + project. Module 5 is the natural perf baseline — see `docs/BENCHMARKING.md`.

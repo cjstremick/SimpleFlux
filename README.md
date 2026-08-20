@@ -94,6 +94,50 @@ dotnet run --project sample/SimpleFlux.Sample   # interactive menu, uses the in-
 Swap the sample to Azure Tables by uncommenting the `UseAzureTables` line in
 `Program.cs` (needs [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) or a real storage account).
 
+## Building & running the benchmarks
+
+The benchmark suite lives in `benchmarks/SimpleFlux.Benchmarks` (BenchmarkDotNet,
+branch `bench/benchmark-suite`). It needs the **.NET 10 SDK** — on this dev Mac the
+SDK is at `~/.dotnetsdk`, so put it on `PATH` first:
+
+```bash
+export PATH="$HOME/.dotnetsdk:$PATH"
+export DOTNET_ROOT="$HOME/.dotnetsdk"
+cd ~/Projects/SimpleFlux
+```
+
+**Important:** arguments you want the **benchmark** to see must come **after `--`**
+(anything before it is consumed by `dotnet run`). `-j short` = ShortRun (a few
+seconds — the fast smoke run); omit it for the longer default job.
+
+```bash
+# Build (SDK must be on PATH; do this once before running). NOTE: `dotnet build`
+# takes the project as a positional arg (the `--project` form is for `dotnet run`).
+dotnet build -c Release benchmarks/SimpleFlux.Benchmarks
+
+# Full suite (perf + safety) with the fast ShortRun job — no Azure needed for InMemory
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*'
+
+# Just the performance scenarios (Append/Read/Project/Concurrency/Reflection)
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*Benchmarks*'
+
+# Just the safety/behavioral assertions
+dotnet run -c Release --project benchmarks/SimpleFlux.Benchmarks -- -j short --filter '*SafetyBenchmarks*'
+```
+
+The suite is parameterized over the `InMemory` and `AzureTables` backends. The
+`InMemory` runs need no setup; the `AzureTables` runs need [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite)
+up on the standard devstore ports (blob 10000, queue 10001, table 10002):
+
+```bash
+docker run -d --name azurite-bench -p 10000:10000 -p 10001:10001 -p 10002:10002 \
+  mcr.microsoft.com/azure-storage/azurite
+```
+
+Results and JSON artifacts land under `benchmarks/SimpleFlux.Benchmarks/artifacts/`.
+See [docs/BENCHMARKING.md](docs/BENCHMARKING.md) for the scenario design and
+[docs/BENCHMARKING_RESULTS.md](docs/BENCHMARKING_RESULTS.md) for the last captured run.
+
 ## Roadmap
 
 - Done: storage backend abstraction (v2), cancellation tokens, optimistic concurrency, .NET 10, release pipeline
