@@ -17,51 +17,83 @@ public class SafetyBenchmarks
     public string Backend { get; set; } = "InMemory";
 
     private FluxStore? _store;
+    private IStreamStore? _streamStore;
 
     [GlobalSetup]
     public void Setup()
     {
-        _store = Backend switch
+        var backend = Backend switch
         {
-            "InMemory" => new FluxStore(new InMemoryStreamStore(),
-                new FluxOptions { EventTypes = { typeof(SafetyEvent), typeof(UnknownEvent) } }),
+            "InMemory" => (IStreamStore)new InMemoryStreamStore(),
             _ => throw new NotSupportedException($"Unknown backend: {Backend}")
         };
+        _streamStore = backend;
+        _store = new FluxStore(backend,
+            new FluxOptions { EventTypes = { typeof(SafetyEvent), typeof(UnknownEvent) } });
     }
 
     private FluxStore Store => _store ?? throw new InvalidOperationException("Not initialized.");
+    private IStreamStore StreamStore => _streamStore ?? throw new InvalidOperationException("Not initialized.");
 
-    // S1 — concurrency: the losing writer gets FluxConcurrencyException with the correct ActualVersion.
+    // S1 — concurrency: two clients that both read version 1 and append version 2 → one
+    // wins, the other must get FluxConcurrencyException with the winner's current version.
+    //
+    // We append at the IStreamStore contract directly (not via FluxStore.AddEvent, which
+    // always resolves the *current* expected version from storage and so cannot self-
+    // conflict under cooperative async). This models the realistic case of two independent
+    // clients that cached a stale version.
     [Benchmark]
     public async Task<int> Concurrency_ThrowsWithActualVersion()
     {
         var streamId = $"s1-{Guid.NewGuid():N}";
-        // Prime with one event; the stream is now at version 1.
+        var record = new FluxEventRecord
+        {
+            EventTypeName = "SafetyEvent",
+            Version = 1,
+            Properties = new Dictionary<string, object?> { ["Value"] = 1 }
+        };
+
+        // Prime the stream to version 1 (expectedVersion = -1 => stream must not exist).
         await Store.AddEvent(new SafetyEvent(streamId, 1));
 
-        // Two writers race to append the next event (both target version 2).
-        // AddEvent resolves the expected version from the store itself, so both
-        // read version 1 and attempt version 2 — only one can win.
-        var b = new SafetyEvent(streamId, 2);
-        int actualReported = 0;
-        bool threw = false;
+        // Two clients, both believing the stream is at version 1, both try to write version 2.
+        var outcomes = await Task.WhenAll(
+            TryAppendAtVersion(streamId, expectedVersion: 1, newVersion: 2, record),
+            TryAppendAtVersion(streamId, expectedVersion: 1, newVersion: 2, record));
+
+        int conflicts = 0;
+        int maxActual = -1;
+        foreach (var (threw, actual) in outcomes)
+        {
+            if (threw)
+            {
+                conflicts++;
+                if (actual > maxActual) maxActual = actual;
+            }
+        }
+        if (conflicts == 0) throw new InvalidOperationException(
+            "Expected at least one FluxConcurrencyException among concurrent writers.");
+        // The loser should report the winner's current version, which is >= 1.
+        // Assert > 0 to stay backend-agnostic (InMemory resolves actual after the write;
+        // AzureTables surfaces the ETag-conflict actual version).
+        if (maxActual <= 0) throw new InvalidOperationException(
+            $"ActualVersion should reflect a written version (>0), got {maxActual}.");
+        return maxActual;
+    }
+
+    private async Task<(bool threw, int actual)> TryAppendAtVersion(
+        string streamId, int expectedVersion, int newVersion, FluxEventRecord record)
+    {
         try
         {
-            await Store.AddEvent(b);
+            await StreamStore.AppendToStreamAsync(streamId, expectedVersion,
+                new[] { record }, newVersion);
+            return (false, 0);
         }
         catch (FluxConcurrencyException ex)
         {
-            threw = true;
-            actualReported = ex.ActualVersion;
+            return (true, ex.ActualVersion);
         }
-        if (!threw) throw new InvalidOperationException("Expected FluxConcurrencyException was not thrown.");
-        // The loser should report the winner's current version, which is >= 1
-        // (the primed version). We assert > 0 rather than a hard-coded value to
-        // stay backend-agnostic (InMemory and AzureTables resolve the actual
-        // version after the winning write).
-        if (actualReported <= 0) throw new InvalidOperationException(
-            $"ActualVersion should reflect a written version (>0), got {actualReported}.");
-        return actualReported;
     }
 
     // S2 — read order matches append (version) order, not timestamp.

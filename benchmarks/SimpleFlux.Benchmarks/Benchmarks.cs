@@ -134,10 +134,21 @@ public class Benchmarks
     {
         // Idempotent warm: only append if the stream doesn't already have 180 events.
         var version = await Store.GetStreamVersion(streamId);
-        if (version.GetValueOrDefault(-1) < 180)
+        if (version.GetValueOrDefault(-1) >= 180) return;
+
+        // NOTE: AppendToStreamAsync submits one Azure Table transaction (events + header).
+        // Azure Tables limits a transaction to 100 entities, and the 2.0.0 store does NOT
+        // chunk (known issue, see AGENTS.md "Unchunked batch limit"). So we warm with
+        // explicit chunks of <=99 events to stay under the cliff; this both lets the
+        // read/project benchmarks run against AzureTables and demonstrates the workaround.
+        var remaining = 180 - Math.Max(0, version.GetValueOrDefault(-1));
+        const int chunkSize = 50;
+        while (remaining > 0)
         {
-            var warm = Enumerable.Range(0, 180).Select(_ => new BenchItemAdded(streamId));
-            await Store.AddEvents(warm);
+            var n = Math.Min(chunkSize, remaining);
+            var warm = Enumerable.Range(0, n).Select(_ => new BenchItemAdded(streamId));
+            await Store.AddEvents(warm);     // one chunk
+            remaining -= n;
         }
     }
 
