@@ -40,7 +40,7 @@ public class FluxHeader : ITableEntity
     /// <summary>
     /// The current version (highest event version) of the stream.
     /// </summary>
-    public int Version { get; set; }
+    public long Version { get; set; }
 
     /// <inheritdoc />
     public string PartitionKey { get; set; } = string.Empty;

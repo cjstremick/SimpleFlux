@@ -43,7 +43,7 @@ public class SafetyBenchmarks
     // conflict under cooperative async). This models the realistic case of two independent
     // clients that cached a stale version.
     [Benchmark]
-    public async Task<int> Concurrency_ThrowsWithActualVersion()
+    public async Task<long> Concurrency_ThrowsWithActualVersion()
     {
         var streamId = $"s1-{Guid.NewGuid():N}";
         var record = new FluxEventRecord
@@ -62,7 +62,7 @@ public class SafetyBenchmarks
             TryAppendAtVersion(streamId, expectedVersion: 1, newVersion: 2, record));
 
         int conflicts = 0;
-        int maxActual = -1;
+        long maxActual = -1;
         foreach (var (threw, actual) in outcomes)
         {
             if (threw)
@@ -81,8 +81,8 @@ public class SafetyBenchmarks
         return maxActual;
     }
 
-    private async Task<(bool threw, int actual)> TryAppendAtVersion(
-        string streamId, int expectedVersion, int newVersion, FluxEventRecord record)
+    private async Task<(bool threw, long actual)> TryAppendAtVersion(
+        string streamId, long expectedVersion, long newVersion, FluxEventRecord record)
     {
         try
         {
@@ -190,7 +190,7 @@ public class SafetyBenchmarks
     public class VersionCapture : FluxProjection
     {
         public VersionCapture(string id) : base(id) { }
-        public int SeenVersion { get; private set; }
+        public long SeenVersion { get; private set; }
         public void Apply(SafetyEvent e) => SeenVersion = e.Version;
     }
 }

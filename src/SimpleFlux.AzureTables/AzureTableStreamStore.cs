@@ -44,7 +44,7 @@ public sealed class AzureTableStreamStore : IStreamStore
     }
 
     /// <inheritdoc />
-    public async Task AppendToStreamAsync(string streamId, int expectedVersion, IReadOnlyList<FluxEventRecord> events, int newVersion, CancellationToken cancellationToken = default)
+    public async Task AppendToStreamAsync(string streamId, long expectedVersion, IReadOnlyList<FluxEventRecord> events, long newVersion, CancellationToken cancellationToken = default)
     {
         if (events.Count == 0) return;
 
@@ -110,7 +110,7 @@ public sealed class AzureTableStreamStore : IStreamStore
         }
 
         return results
-            .OrderBy(e => (int) e["Version"])
+            .OrderBy(e => (long) e["Version"])
             .Select(ToRecord)
             .ToArray();
     }
@@ -131,7 +131,7 @@ public sealed class AzureTableStreamStore : IStreamStore
         }
     }
 
-    private static void ValidateExpectedVersion(string streamId, int expectedVersion, FluxHeader? header)
+    private static void ValidateExpectedVersion(string streamId, long expectedVersion, FluxHeader? header)
     {
         var actualVersion = header?.Version ?? -1;
         var conflict = expectedVersion switch
@@ -180,7 +180,7 @@ public sealed class AzureTableStreamStore : IStreamStore
         return new FluxEventRecord
         {
             EventTypeName = (string) entity["EventType"],
-            Version = (int) entity["Version"],
+            Version = (long) entity["Version"],
             Properties = properties
         };
     }
