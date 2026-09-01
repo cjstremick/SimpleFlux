@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SimpleFlux;
 using SimpleFlux.AzureTables;
+using SimpleFlux.FlatFile;
 using SimpleFlux.InMemory;
 using SimpleFlux.Sample.Events;
 using SimpleFlux.Sample.Modules;
@@ -11,6 +12,7 @@ var services = new ServiceCollection();
 // Pick a backend:
 //   - InMemory: runs anywhere with zero setup (this is the default below)
 //   - AzureTables: needs Azurite or a real Azure Storage account
+//   - FlatFile: local filesystem (JSONL per stream, zero deps)
 //
 // Event registration: WithAssemblyEvents<TMarker>() registers every event type in
 // the assembly holding the marker type; WithEvent<T>() registers a single type.
@@ -22,6 +24,10 @@ services
 //     .AddSimpleFlux()
 //     .WithAssemblyEvents<ItemAdded>()
 //     .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
+// services
+//     .AddSimpleFlux()
+//     .WithAssemblyEvents<ItemAdded>()
+//     .UseFlatFile(Path.Combine(Path.GetTempPath(), "simpleflux-sample"));
 
 var provider = services.BuildServiceProvider();
 var store = provider.GetRequiredService<FluxStore>();

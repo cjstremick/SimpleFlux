@@ -10,7 +10,7 @@
 /// </remarks>
 public class FluxStore
 {
-    private const int NoStream = -1;
+    private const long NoStream = -1L;
 
     private readonly IStreamStore _streamStore;
     private readonly List<KnownFluxEventType> _knownEventTypes;
@@ -82,13 +82,13 @@ public class FluxStore
         await _streamStore.AppendToStreamAsync(streamId, expectedVersion, records, version - 1, cancellationToken);
     }
 
-    private async Task<int> ResolveExpectedVersionAsync(string streamId, CancellationToken cancellationToken)
+    private async Task<long> ResolveExpectedVersionAsync(string streamId, CancellationToken cancellationToken)
     {
         var metadata = await _streamStore.GetStreamMetadataAsync(streamId, cancellationToken);
         return metadata?.Version ?? NoStream;
     }
 
-    private static int NextVersion(int expectedVersion) => expectedVersion == NoStream ? 1 : expectedVersion + 1;
+    private static long NextVersion(long expectedVersion) => expectedVersion == NoStream ? 1L : expectedVersion + 1;
 
     private static List<KnownFluxEventType> DiscoverEventTypes(FluxOptions options)
     {
@@ -224,7 +224,7 @@ public class FluxStore
     /// <param name="id">The stream id.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The stream version, or <c>null</c> when the stream does not exist.</returns>
-    public async Task<int?> GetStreamVersion(string id, CancellationToken cancellationToken = default)
+    public async Task<long?> GetStreamVersion(string id, CancellationToken cancellationToken = default)
     {
         var metadata = await _streamStore.GetStreamMetadataAsync(id, cancellationToken);
         return metadata?.Version;

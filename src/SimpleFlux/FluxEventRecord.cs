@@ -20,7 +20,7 @@ public sealed class FluxEventRecord
     /// <summary>
     /// The event's position within its stream.
     /// </summary>
-    public int Version { get; init; }
+    public long Version { get; init; }
 
     /// <summary>
     /// The persisted property values, keyed by <see cref="FluxPropertyAttribute"/> name.
