@@ -44,7 +44,7 @@ public class ItemAdded : FluxEvent
 var services = new ServiceCollection();
 services
     .AddSimpleFlux()
-    .WithAssemblyEvents<ItemAdded>()
+    .WithEvent<ItemAdded>()                    // register event types
     .UseInMemory();
 
 var provider = services.BuildServiceProvider();
@@ -68,7 +68,8 @@ Console.WriteLine($"Stock: {inventory.Quantity}");  // Stock: 10
 No DI? Use the backends directly:
 
 ```csharp
-var store = new FluxStore(new InMemoryStreamStore());
+var store = new FluxStore(new InMemoryStreamStore(),
+    new FluxOptions { EventTypes = { typeof(ItemAdded) } });
 // or
 var store = new FluxStore(new FlatFileStreamStore("/path/to/streams"));
 ```
@@ -85,7 +86,7 @@ var store = new FluxStore(new FlatFileStreamStore("/path/to/streams"));
 
 ```csharp
 services.AddSimpleFlux()
-    .WithAssemblyEvents<ItemAdded>()
+    .WithEvents<ItemAdded, ItemRemoved>()
     .UseInMemory();
 ```
 
@@ -95,7 +96,7 @@ Zero dependencies. Data lost on process exit. Fastest option for tests.
 
 ```csharp
 services.AddSimpleFlux()
-    .WithAssemblyEvents<ItemAdded>()
+    .ScanAssemblyOf<ItemAdded>()               // scan assembly for all events
     .UseFlatFile("/path/to/streams");
 ```
 
@@ -116,7 +117,7 @@ Per-stream file locking for concurrency. Zero external dependencies. Durable to 
 using Azure.Data.Tables;
 
 services.AddSimpleFlux()
-    .WithAssemblyEvents<ItemAdded>()
+    .ScanAssemblyOf<ItemAdded>()
     .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
 ```
 

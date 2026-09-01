@@ -97,11 +97,11 @@ public class FluxStore
             .ToList();
         var assemblies = options.EventAssemblies.ToList();
 
-        // Explicit registrations win: as soon as anything is registered, the implicit
-        // "scan all loaded assemblies" fallback is disabled.
         if (explicitTypes.Count == 0 && assemblies.Count == 0)
         {
-            assemblies.AddRange(AppDomain.CurrentDomain.GetAssemblies());
+            throw new InvalidOperationException(
+                "No event types registered. Use WithEvent<T>(), WithEvents<T1,T2>(), " +
+                "or ScanAssemblyOf<TMarker>() to register event types before creating the store.");
         }
 
         var discovered = new List<KnownFluxEventType>(explicitTypes.Count + assemblies.Count * 4);

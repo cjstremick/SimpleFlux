@@ -14,19 +14,21 @@ var services = new ServiceCollection();
 //   - AzureTables: needs Azurite or a real Azure Storage account
 //   - FlatFile: local filesystem (JSONL per stream, zero deps)
 //
-// Event registration: WithAssemblyEvents<TMarker>() registers every event type in
-// the assembly holding the marker type; WithEvent<T>() registers a single type.
+// Event registration (pick one):
+//   .WithEvent<ItemAdded>()              — register a single type
+//   .WithEvents<ItemAdded, ItemRemoved>() — register multiple types
+//   .ScanAssemblyOf<ItemAdded>()          — register every FluxEvent in the assembly
 services
     .AddSimpleFlux()
-    .WithAssemblyEvents<ItemAdded>()
+    .WithEvents<ItemAdded, ItemRemoved>()
     .UseInMemory();
 // services
 //     .AddSimpleFlux()
-//     .WithAssemblyEvents<ItemAdded>()
+//     .ScanAssemblyOf<ItemAdded>()
 //     .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
 // services
 //     .AddSimpleFlux()
-//     .WithAssemblyEvents<ItemAdded>()
+//     .ScanAssemblyOf<ItemAdded>()
 //     .UseFlatFile(Path.Combine(Path.GetTempPath(), "simpleflux-sample"));
 
 var provider = services.BuildServiceProvider();
