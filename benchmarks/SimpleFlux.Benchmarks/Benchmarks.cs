@@ -3,6 +3,7 @@ using BenchmarkDotNet.Order;
 using Azure.Data.Tables;
 using SimpleFlux;
 using SimpleFlux.AzureTables;
+using SimpleFlux.FlatFile;
 using SimpleFlux.InMemory;
 
 namespace SimpleFlux.Benchmarks;
@@ -11,6 +12,8 @@ namespace SimpleFlux.Benchmarks;
 /// (blob 10000, queue 10001, table 10002) — e.g.
 /// `docker run -d -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite`.
 ///
+/// FlatFile uses a temp directory that is cleaned up after the run.
+///
 /// NOTE: entry point lives in Program.cs (BenchmarkDotNet AutoStart). Build with the
 /// .NET 10 SDK installed.
 /// </summary>
@@ -18,20 +21,17 @@ namespace SimpleFlux.Benchmarks;
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 public class Benchmarks
 {
-    // The 100-entity Azure Table Storage transaction limit is the known cliff.
-    private const int AzureBatchLimit = 100;
-
-    [Params("InMemory", "AzureTables")]
+    [Params("InMemory", "AzureTables", "FlatFile")]
     public string Backend { get; set; } = "InMemory";
 
-    // Batch-size sweep to surface the 100-entity transaction cliff on AzureTables.
-    // Note: BatchSize only drives P2 (Append_Batch).
+    // Batch-size sweep to compare throughput across backends.
     [Params(1, 10, 25, 50, 75, 100, 125)]
     public int BatchSize { get; set; }
 
     private FluxStore? _store;
     private string? _streamId;
     private string? _projectStreamId;
+    private string? _flatFileRoot;
 
     [GlobalSetup]
     public async Task Setup()
@@ -41,11 +41,19 @@ public class Benchmarks
             "InMemory" => new FluxStore(new InMemoryStreamStore(),
                 new FluxOptions { EventTypes = { typeof(BenchItemAdded), typeof(BenchItemRemoved) } }),
             "AzureTables" => await CreateAzureTableStoreAsync(),
+            "FlatFile" => CreateFlatFileStore(),
             _ => throw new NotSupportedException($"Unknown backend: {Backend}")
         };
         // Unique-per-parameter-combo stream ids so iterations don't collide.
         _streamId = $"b-{Backend}-{Guid.NewGuid():N}";
         _projectStreamId = $"b-proj-{Backend}-{Guid.NewGuid():N}";
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        if (Backend == "FlatFile" && _flatFileRoot is not null && Directory.Exists(_flatFileRoot))
+            Directory.Delete(_flatFileRoot, recursive: true);
     }
 
     private static async Task<FluxStore> CreateAzureTableStoreAsync()
@@ -54,6 +62,14 @@ public class Benchmarks
         var client = new TableClient("UseDevelopmentStorage=true", "FluxBenchmarks");
         await client.CreateIfNotExistsAsync();
         return new FluxStore(new AzureTableStreamStore(client),
+            new FluxOptions { EventTypes = { typeof(BenchItemAdded), typeof(BenchItemRemoved) } });
+    }
+
+    private FluxStore CreateFlatFileStore()
+    {
+        _flatFileRoot = Path.Combine(Path.GetTempPath(), $"simpleflux-bench-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_flatFileRoot);
+        return new FluxStore(new FlatFileStreamStore(_flatFileRoot),
             new FluxOptions { EventTypes = { typeof(BenchItemAdded), typeof(BenchItemRemoved) } });
     }
 
@@ -116,7 +132,6 @@ public class Benchmarks
         }));
 
         var results = await Task.WhenAll(tasks);
-        GC.KeepAlive(AzureBatchLimit); // keep the const referenced (documents the cliff)
         return results.Sum();
     }
 
@@ -136,8 +151,6 @@ public class Benchmarks
         var version = await Store.GetStreamVersion(streamId);
         if (version.GetValueOrDefault(-1) >= 180) return;
 
-        // AppendToStreamAsync now chunks Azure Table transactions under the 100-entity
-        // limit itself, so a single AddEvents call with the full remaining batch works.
         var remaining = (int)(180 - Math.Max(0, version.GetValueOrDefault(-1)));
         var warm = Enumerable.Range(0, remaining).Select(_ => new BenchItemAdded(streamId));
         await Store.AddEvents(warm);
