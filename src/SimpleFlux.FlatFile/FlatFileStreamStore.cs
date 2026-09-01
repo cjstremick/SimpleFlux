@@ -106,13 +106,43 @@ public sealed class FlatFileStreamStore : IStreamStore
         foreach (var line in File.ReadLines(eventsPath, Encoding.UTF8))
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            var record = JsonSerializer.Deserialize<FluxEventRecord>(line, JsonOptions);
-            if (record is not null)
-                records.Add(record);
+            var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+
+            var properties = new Dictionary<string, object?>();
+            if (root.TryGetProperty("Properties", out var propsElement))
+            {
+                foreach (var prop in propsElement.EnumerateObject())
+                {
+                    properties[prop.Name] = ConvertJsonElement(prop.Value);
+                }
+            }
+
+            records.Add(new FluxEventRecord
+            {
+                EventTypeName = root.GetProperty("EventTypeName").GetString()!,
+                Version = root.GetProperty("Version").GetInt64(),
+                Properties = properties
+            });
         }
 
         return Task.FromResult<IReadOnlyList<FluxEventRecord>>(
             records.OrderBy(r => r.Version).ToArray());
+    }
+
+    private static object? ConvertJsonElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt32(out var i) ? i
+                : element.TryGetInt64(out var l) ? l
+                : (object)element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => element.GetRawText()
+        };
     }
 
     private void EnsureStreamDirectory(string streamId)
