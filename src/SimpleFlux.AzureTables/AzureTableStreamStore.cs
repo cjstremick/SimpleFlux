@@ -9,8 +9,9 @@ namespace SimpleFlux.AzureTables;
 /// <remarks>
 /// All streams live in a single Azure Table. Each stream's events share a partition key
 /// (the stream id) and a header row (<see cref="FluxHeader"/>) tracks the current
-/// version. Appends write the events and the header update as one table transaction;
-/// optimistic concurrency is enforced with the header's <see cref="ETag"/>.
+/// version. Appends write events and header updates as table transactions of at most
+/// 100 entities (chunking larger batches); optimistic concurrency is enforced with the
+/// header's <see cref="ETag"/>.
 /// </remarks>
 public sealed class AzureTableStreamStore : IStreamStore
 {
@@ -50,41 +51,45 @@ public sealed class AzureTableStreamStore : IStreamStore
         var header = await ReadHeaderAsync(streamId, cancellationToken);
         ValidateExpectedVersion(streamId, expectedVersion, header);
 
-        var actions = new List<TableTransactionAction>(events.Count + 1);
-        foreach (var record in events)
-        {
-            actions.Add(new TableTransactionAction(TableTransactionActionType.Add, ToEntity(streamId, record)));
-        }
-
         var headerVersion = header?.Version ?? 0;
         var headerEntity = header ?? new FluxHeader(streamId);
         if (headerVersion >= newVersion)
             throw new ArgumentException(
                 $"newVersion ({newVersion}) must be greater than the current stream version ({headerVersion}).");
 
-        // Concurrency enforcement at the storage level:
-        //  - new stream  -> Add (insert) fails with 409 if the stream appeared meanwhile
-        //  - existing    -> UpdateReplace with the read ETag fails with 412 if it changed
-        //  - any version -> unconditional UpdateReplace
-        var headerActionType = expectedVersion switch
-        {
-            -1 => TableTransactionActionType.Add,
-            -2 => TableTransactionActionType.UpdateReplace,
-            _ => TableTransactionActionType.UpdateReplace
-        };
-        var headerETag = expectedVersion switch
-        {
-            -1 => ETag.All,
-            -2 => ETag.All,
-            _ => header?.ETag ?? ETag.All
-        };
-
-        headerEntity.Version = newVersion;
-        actions.Add(new TableTransactionAction(headerActionType, headerEntity, headerETag));
+        // Azure Tables limits a transaction to 100 entities. Each chunk writes at most
+        // 99 event rows plus the header row, staying under the limit. The first chunk
+        // enforces the expected-version semantics; later chunks append unconditionally,
+        // so a batch larger than 99 events is not fully atomic (partial writes on a
+        // mid-batch failure are a documented limitation for batches > 99).
+        const int maxEventRowsPerTransaction = 99;
 
         try
         {
-            await _tableClient.SubmitTransactionAsync(actions, cancellationToken);
+            for (var offset = 0; offset < events.Count; offset += maxEventRowsPerTransaction)
+            {
+                var chunkSize = Math.Min(maxEventRowsPerTransaction, events.Count - offset);
+                var actions = new List<TableTransactionAction>(chunkSize + 1);
+                for (var i = offset; i < offset + chunkSize; i++)
+                {
+                    actions.Add(new TableTransactionAction(
+                        TableTransactionActionType.Add,
+                        ToEntity(streamId, events[i])));
+                }
+
+                var isFirstChunk = offset == 0;
+                var headerActionType = isFirstChunk && expectedVersion == -1
+                    ? TableTransactionActionType.Add
+                    : TableTransactionActionType.UpdateReplace;
+                var headerETag = !isFirstChunk || expectedVersion is -1 or -2
+                    ? ETag.All
+                    : header?.ETag ?? ETag.All;
+
+                headerEntity.Version = events[offset + chunkSize - 1].Version;
+                actions.Add(new TableTransactionAction(headerActionType, headerEntity, headerETag));
+
+                await _tableClient.SubmitTransactionAsync(actions, cancellationToken);
+            }
         }
         catch (RequestFailedException ex) when (ex.Status is 409 or 412)
         {
