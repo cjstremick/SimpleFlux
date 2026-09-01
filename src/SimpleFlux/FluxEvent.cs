@@ -27,5 +27,5 @@ public abstract class FluxEvent
     /// <summary>
     /// The position of this event within its stream, assigned by the store on write.
     /// </summary>
-    public int Version { get; set; }
+    public long Version { get; set; }
 }

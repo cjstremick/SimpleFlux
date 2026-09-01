@@ -12,7 +12,7 @@ public class FluxConcurrencyException : Exception
     /// <param name="streamId">The stream that conflicted.</param>
     /// <param name="expectedVersion">The version the caller expected (-1 = stream must not exist, -2 = any).</param>
     /// <param name="actualVersion">The stream's actual version (-1 when the stream does not exist).</param>
-    public FluxConcurrencyException(string streamId, int expectedVersion, int actualVersion)
+    public FluxConcurrencyException(string streamId, long expectedVersion, long actualVersion)
         : base(BuildMessage(streamId, expectedVersion, actualVersion))
     {
         StreamId = streamId;
@@ -28,14 +28,14 @@ public class FluxConcurrencyException : Exception
     /// <summary>
     /// The version the caller expected.
     /// </summary>
-    public int ExpectedVersion { get; }
+    public long ExpectedVersion { get; }
 
     /// <summary>
     /// The stream's actual version (-1 when the stream does not exist).
     /// </summary>
-    public int ActualVersion { get; }
+    public long ActualVersion { get; }
 
-    private static string BuildMessage(string streamId, int expectedVersion, int actualVersion)
+    private static string BuildMessage(string streamId, long expectedVersion, long actualVersion)
     {
         var actual = actualVersion < 0 ? "the stream does not exist" : $"version {actualVersion}";
         return $"Concurrency conflict on stream '{streamId}': expected version {expectedVersion} but {actual}.";

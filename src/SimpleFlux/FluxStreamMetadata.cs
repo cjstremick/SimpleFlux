@@ -13,5 +13,5 @@ public sealed class FluxStreamMetadata
     /// <summary>
     /// The current version of the stream — the version of the last appended event.
     /// </summary>
-    public int Version { get; init; }
+    public long Version { get; init; }
 }

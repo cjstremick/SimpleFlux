@@ -1,0 +1,18 @@
+<Project>
+
+  <!-- Shared build targets for all projects in the repo. -->
+
+  <!-- Fail on warnings — catches XML doc gaps, nullable issues, etc. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Test projects: set common defaults -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Suppress CS1591 (missing XML doc) for test projects -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

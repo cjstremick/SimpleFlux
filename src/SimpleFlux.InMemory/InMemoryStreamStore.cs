@@ -15,7 +15,7 @@ public sealed class InMemoryStreamStore : IStreamStore
     private readonly ConcurrentDictionary<string, StreamData> _streams = new();
 
     /// <inheritdoc />
-    public Task AppendToStreamAsync(string streamId, int expectedVersion, IReadOnlyList<FluxEventRecord> events, int newVersion, CancellationToken cancellationToken = default)
+    public Task AppendToStreamAsync(string streamId, long expectedVersion, IReadOnlyList<FluxEventRecord> events, long newVersion, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var data = _streams.GetOrAdd(streamId, static _ => new StreamData());
@@ -65,7 +65,7 @@ public sealed class InMemoryStreamStore : IStreamStore
         }
     }
 
-    private static void EnforceExpectedVersion(string streamId, int expectedVersion, StreamData data)
+    private static void EnforceExpectedVersion(string streamId, long expectedVersion, StreamData data)
     {
         var actualVersion = data.Version;
         var conflict = expectedVersion switch
@@ -86,7 +86,7 @@ public sealed class InMemoryStreamStore : IStreamStore
         public object SyncRoot { get; } = new();
 
         /// <summary>The current stream version; -1 when the stream has no events.</summary>
-        public int Version { get; set; } = -1;
+        public long Version { get; set; } = -1;
 
         public List<FluxEventRecord> Records { get; } = new();
     }

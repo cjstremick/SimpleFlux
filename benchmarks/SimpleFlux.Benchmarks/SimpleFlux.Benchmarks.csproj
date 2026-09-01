@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/SimpleFlux/SimpleFlux.csproj" />
+    <ProjectReference Include="../../src/SimpleFlux.AzureTables/SimpleFlux.AzureTables.csproj" />
+    <ProjectReference Include="../../src/SimpleFlux.InMemory/SimpleFlux.InMemory.csproj" />
+    <ProjectReference Include="../../src/SimpleFlux.FlatFile/SimpleFlux.FlatFile.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+</Project>
