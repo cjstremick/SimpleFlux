@@ -15,6 +15,16 @@ namespace SimpleFlux.AzureTables;
 /// </remarks>
 public sealed class AzureTableStreamStore : IStreamStore
 {
+    /// <summary>
+    /// Property names that collide with Azure Table Storage system columns or
+    /// SimpleFlux metadata columns and must not be used as event property names.
+    /// </summary>
+    private static readonly HashSet<string> ReservedColumnNames = new(StringComparer.Ordinal)
+    {
+        "PartitionKey", "RowKey", "Timestamp", "ETag",
+        "EventType", "Version", FluxHeader.FluxHeaderKey
+    };
+
     private readonly TableClient _tableClient;
 
     /// <summary>
@@ -156,6 +166,11 @@ public sealed class AzureTableStreamStore : IStreamStore
         };
         foreach (var (key, value) in record.Properties)
         {
+            if (ReservedColumnNames.Contains(key))
+                throw new ArgumentException(
+                    $"Property name '{key}' collides with a reserved Azure Table Storage column name. " +
+                    $"Use a different [FluxProperty] name. Reserved names: {string.Join(", ", ReservedColumnNames)}.");
+
             // Azure Tables has no null column; absent columns stay default on read
             // (which is the same value for null-able properties).
             if (value != null) entity[key] = value;
