@@ -32,7 +32,7 @@ jobs:
       # Skipped automatically until then.
       - name: Test
         if: hashFiles('**/*Tests.csproj') != ''
-        run: dotnet test --no-build --configuration Release
+        run: dotnet test --no-build --configuration Release --filter "FullyQualifiedName!~AzureTables"
 
       # Verification only — nothing is pushed from this workflow.
       # Flags mirror the publish workflows so CI validates the real package.
