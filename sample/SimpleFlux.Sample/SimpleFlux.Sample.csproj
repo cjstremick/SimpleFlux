@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\src\SimpleFlux\SimpleFlux.csproj" />
     <ProjectReference Include="..\..\src\SimpleFlux.AzureTables\SimpleFlux.AzureTables.csproj" />
     <ProjectReference Include="..\..\src\SimpleFlux.InMemory\SimpleFlux.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\SimpleFlux.FlatFile\SimpleFlux.FlatFile.csproj" />
   </ItemGroup>
 
   <ItemGroup>
