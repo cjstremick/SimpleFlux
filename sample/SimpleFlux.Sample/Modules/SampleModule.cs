@@ -1,14 +1,12 @@
-﻿using Azure.Data.Tables;
-
-namespace SimpleFlux.Sample.Modules;
+﻿namespace SimpleFlux.Sample.Modules;
 
 public abstract class SampleModule
 {
     protected readonly FluxStore FluxStore;
 
-    protected SampleModule(TableClient tableClient)
+    protected SampleModule(FluxStore fluxStore)
     {
-        FluxStore = new FluxStore(tableClient);
+        FluxStore = fluxStore;
     }
 
     public abstract string Desciption { get; }

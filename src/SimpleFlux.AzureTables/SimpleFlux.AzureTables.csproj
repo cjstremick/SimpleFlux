@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,10 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <!--
-    VersionPrefix is the local default. CI overrides the full version at pack time
-    with `-p:Version=X.Y.Z` or `-p:Version=X.Y.Z-prerelease.N` (see RELEASING.md).
-  -->
   <PropertyGroup>
     <VersionPrefix>2.0.0</VersionPrefix>
   </PropertyGroup>
@@ -20,13 +16,17 @@
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 
-    <PackageId>SimpleFlux</PackageId>
-    <Title>SimpleFlux — simple event sourcing for .NET</Title>
-    <Description>SimpleFlux is a simple event sourcing library for .NET. Append events to streams, rebuild projections by replaying them, and query stream state — with pluggable storage backends. Core abstractions only; add SimpleFlux.AzureTables or SimpleFlux.InMemory for storage.</Description>
+    <PackageId>SimpleFlux.AzureTables</PackageId>
+    <Title>SimpleFlux.AzureTables — Azure Table Storage backend for SimpleFlux</Title>
+    <Description>Azure Table Storage backend for SimpleFlux, the simple event sourcing library for .NET. Add SimpleFlux for the core abstractions and this package to store streams in Azure Tables.</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <ProjectReference Include="..\SimpleFlux\SimpleFlux.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Data.Tables" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 

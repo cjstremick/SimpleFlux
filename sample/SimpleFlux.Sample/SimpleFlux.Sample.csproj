@@ -11,10 +11,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SimpleFlux\SimpleFlux.csproj" />
+    <ProjectReference Include="..\..\src\SimpleFlux.AzureTables\SimpleFlux.AzureTables.csproj" />
+    <ProjectReference Include="..\..\src\SimpleFlux.InMemory\SimpleFlux.InMemory.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Faker.Net" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
 </Project>

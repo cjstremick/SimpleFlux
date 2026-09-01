@@ -106,7 +106,8 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet nuget push "artifacts/SimpleFlux.${{ steps.version.outputs.version }}.nupkg" \
+          # Every SimpleFlux* package (core + backends) publishes at this version.
+          dotnet nuget push "artifacts/SimpleFlux*.nupkg" \
             --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
             --symbol-source https://api.nuget.org/v3/index.json
@@ -117,6 +118,6 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           gh release create "v$VERSION" \
-            "artifacts/SimpleFlux.$VERSION.nupkg" \
+            artifacts/SimpleFlux*.nupkg \
             --title "SimpleFlux $VERSION" \
             --notes "Stable release of SimpleFlux $VERSION. Install with: dotnet add package SimpleFlux --version $VERSION"

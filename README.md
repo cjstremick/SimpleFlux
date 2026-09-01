@@ -1,20 +1,27 @@
 # SimpleFlux
 
-Simple Flux is a simple event sourcing library for .NET. It is based on Azure Table Storage and is inspired by the excellent Streamstone project.
+Simple Flux is a simple event sourcing library for .NET. Append **events** to **streams**
+and rebuild **projections** by replaying them — with **pluggable storage backends**
+(Azure Table Storage, in-memory, and more to come). Inspired by the excellent Streamstone project.
 
 | CI | NuGet | License |
 |---|---|---|
 | [![CI](https://github.com/cjstremick/SimpleFlux/actions/workflows/ci.yml/badge.svg)](https://github.com/cjstremick/SimpleFlux/actions/workflows/ci.yml) | [![NuGet](https://img.shields.io/nuget/v/SimpleFlux)](https://www.nuget.org/packages/SimpleFlux) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) |
 
-## What it is
+## Packages
 
-SimpleFlux is a small event-sourcing library: you append **events** to **streams**, and
-rebuild **projections** (read models) by replaying a stream's events. Everything is
-stored in one Azure Table — no extra infrastructure.
+| Package | What it is |
+|---|---|
+| **SimpleFlux** | Core: abstractions (`IStreamStore`), `FluxStore` facade, events, projections, DI registration (`AddSimpleFlux()`) |
+| **SimpleFlux.AzureTables** | Azure Table Storage backend (`UseAzureTables(tableClient)`) |
+| **SimpleFlux.InMemory** | Zero-dependency in-memory backend (`UseInMemory()`) — quickstarts, demos, tests |
+
+## Quickstart
 
 ```csharp
-using Azure.Data.Tables;
+using Microsoft.Extensions.DependencyInjection;
 using SimpleFlux;
+using SimpleFlux.InMemory;   // or SimpleFlux.AzureTables
 
 // 1. Define an event
 [FluxEvent("ItemAdded")]
@@ -26,12 +33,21 @@ public class ItemAdded : FluxEvent
     public int Quantity { get; set; }
 }
 
-// 2. Append events to a stream (stream = the event's Id)
-var tableClient = new TableClient("UseDevelopmentStorage=true", "FluxStore");
-var store = new FluxStore(tableClient);
+// 2. Register SimpleFlux with a backend
+var services = new ServiceCollection();
+services
+    .AddSimpleFlux()
+    .WithAssemblyEvents<ItemAdded>()   // events from this assembly
+    .UseInMemory();
+//   .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
+
+var provider = services.BuildServiceProvider();
+var store = provider.GetRequiredService<FluxStore>();
+
+// 3. Append events to a stream (stream = the event's Id)
 await store.AddEvent(new ItemAdded("ABC-123", 10));
 
-// 3. Rebuild a projection from the stream
+// 4. Rebuild a projection from the stream
 public class ItemInventory : FluxProjection
 {
     public ItemInventory(string id) : base(id) { }
@@ -42,59 +58,56 @@ public class ItemInventory : FluxProjection
 var inventory = await store.ProjectTo<ItemInventory>("ABC-123");
 ```
 
+No DI? Use the backends directly: `new FluxStore(new InMemoryStreamStore())` or
+`new FluxStore(new AzureTableStreamStore(tableClient))`.
+
 ## API overview
 
 | Member | Purpose |
 |---|---|
-| `FluxStore(tableClient)` | Entry point; discover all `FluxEvent` subclasses in loaded assemblies |
-| `FluxStore.AddEvent(e)` | Append one event, advance the stream version (transactional) |
-| `FluxStore.AddEvents(events)` | Append many events, grouped per stream (one transaction per stream) |
+| `FluxStore(IStreamStore, FluxOptions?)` | Main facade; discovers all `FluxEvent` types in the given assemblies (all loaded by default) |
+| `FluxStore.AddEvent(e)` | Append one event; stream version advances atomically |
+| `FluxStore.AddEvents(events)` | Append many events, one atomic operation per stream |
 | `FluxStore.ProjectTo<T>(id)` | Rebuild a projection by replaying a stream (`null` if empty) |
-| `FluxStore.StreamExists(id)` | Whether the stream has any events |
-| `FluxStore.GetStreamVersion(id)` | Last event version of the stream (`null` if absent) |
-| `FluxEvent` | Abstract base: `Id` (stream), `Version` (assigned by the store) |
-| `[FluxEvent("Name")]` | Stable event type name persisted with each event |
-| `[FluxProperty("Column")]` | Mark a property for persistence (Azure Table compatible types) |
-| `FluxProjection` | Abstract base: implement `Apply(SomeEvent)` per event type; unhandled types are ignored |
+| `FluxStore.StreamExists(id)` / `GetStreamVersion(id)` | Stream metadata queries |
+| `IStreamStore` | The storage contract backends implement (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)) |
+| `FluxEvent` / `[FluxEvent]` / `[FluxProperty]` | Event contracts (storage-neutral) |
+| `FluxProjection` | Base for read models: implement `Apply(SomeEvent)` per event type |
 
-## How storage works
+All async methods accept a `CancellationToken`.
 
-One table (default `FluxStore`), partition key = stream id:
+## Concurrency
 
-- **Header row** (`F-HEAD`) — tracks the stream's current version
-- **Event rows** (`F-{guid}`) — `EventType` + `Version` + one column per `[FluxProperty]`
+Appends are **optimistic-concurrency safe**: `AddEvent`/`AddEvents` record the stream
+version they expect, and the backend rejects the write with
+`FluxConcurrencyException` if the stream changed in the meantime. Concurrent appends
+to the same stream must be retried or serialized by the caller.
 
-Events are written in a table transaction with the header update, so version never
-advances without the event landing. Reads replay events in timestamp order.
-
-For local development, use [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) with `UseDevelopmentStorage=true`:
+## Building & running the sample
 
 ```bash
-azurite
-dotnet run --project sample/SimpleFlux.Sample   # interactive demo (menu of 5 modules)
+dotnet restore
+dotnet build
+dotnet run --project sample/SimpleFlux.Sample   # interactive menu, uses the in-memory backend
 ```
+
+Swap the sample to Azure Tables by uncommenting the `UseAzureTables` line in
+`Program.cs` (needs [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) or a real storage account).
 
 ## Roadmap
 
-Short term — hardening (semver `1.0.1`):
-- Add a test project (event round-trip, versioning, projections, batch semantics)
-- Restore `Version` on read; order reads by `Version` instead of timestamp
-- Optimistic concurrency on version increments (ETag) and 100-entity batch chunking
-- Stop swallowing all exceptions in header lookups
+- Done: storage backend abstraction (v2), cancellation tokens, optimistic concurrency, .NET 10, release pipeline
+- In progress: test project (parameterized over InMemory + AzureTables backends)
+- Backlog (issues): snapshot support, stream deletion, metadata/correlation ids,
+  additional backends (EF Core / Postgres), sample typo cleanup
 
-Later — features (`1.1.0`+):
-- `CancellationToken` support across the API
-- Snapshots for large streams
-- Stream deletion/archival
-- Metadata on events (correlation id, causation id)
-
-Open source ideas are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Ideas welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Architecture notes live in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Releasing
 
-Prereleases and stable releases are published through GitHub Actions. See
-[RELEASING.md](RELEASING.md) for the complete guide — including how to publish a
-`1.1.0-alpha.1` prerelease and promote it to `1.1.0`.
+All SimpleFlux packages publish together from one workflow run. See
+[RELEASING.md](RELEASING.md) for the prerelease → promote-to-stable guide.
 
 ## License
 

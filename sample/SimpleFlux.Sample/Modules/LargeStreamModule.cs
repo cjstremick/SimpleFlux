@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Azure.Data.Tables;
 using Faker;
 using SimpleFlux.Sample.Events;
 
@@ -7,8 +6,8 @@ namespace SimpleFlux.Sample.Modules;
 
 public class LargeStreamModule : SampleModule
 {
-    public LargeStreamModule(TableClient tableClient)
-        : base(tableClient)
+    public LargeStreamModule(FluxStore fluxStore)
+        : base(fluxStore)
     {
     }
 
@@ -22,7 +21,7 @@ public class LargeStreamModule : SampleModule
         Console.WriteLine();
 
         var streamExists = await FluxStore.StreamExists(sku);
-        if (true)
+        if (!streamExists)
         {
             Console.WriteLine("The test stream does not exist.  Creating it, now..."); 
             var count = 180;

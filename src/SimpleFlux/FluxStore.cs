@@ -1,47 +1,29 @@
-﻿using Azure.Data.Tables;
-
-namespace SimpleFlux;
+﻿namespace SimpleFlux;
 
 /// <summary>
-/// The main entry point for reading and writing event streams in Azure Table Storage.
+/// The main entry point for reading and writing event streams.
 /// </summary>
 /// <remarks>
-/// All streams live in a single Azure Table. Each stream's events share a partition key
-/// (the stream id); a header row (<see cref="FluxHeader"/>) tracks the current version.
-/// Event writes and the header update are submitted as one table transaction, so a
-/// stream's version never advances without its events being stored.
+/// <see cref="FluxStore"/> is storage-agnostic: it talks to an <see cref="IStreamStore"/>
+/// implementation (Azure Tables, InMemory, ...), owns event discovery and version
+/// assignment, and hydrates <see cref="FluxEvent"/> instances from storage records.
 /// </remarks>
 public class FluxStore
 {
+    private const int NoStream = -1;
+
+    private readonly IStreamStore _streamStore;
     private readonly List<KnownFluxEventType> _knownEventTypes;
-    private readonly TableClient _tableClient;
 
     /// <summary>
-    /// Creates a store over the given table client.
+    /// Creates a store over the given stream store.
     /// </summary>
-    /// <param name="tableClient">The Azure Table client used for all storage operations.</param>
-    public FluxStore(TableClient tableClient)
+    /// <param name="streamStore">The backend storage implementation.</param>
+    /// <param name="options">Optional configuration (event discovery assemblies).</param>
+    public FluxStore(IStreamStore streamStore, FluxOptions? options = null)
     {
-        _tableClient = tableClient;
-        _knownEventTypes = AppDomain
-            .CurrentDomain
-            .GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .Where(t => t.IsSubclassOf(typeof(FluxEvent)))
-            .Select(t =>
-            {
-                var fluxEventAttribute = t
-                    .GetCustomAttributes(true)
-                    .OfType<FluxEventAttribute>()
-                    .SingleOrDefault();
-                return new KnownFluxEventType
-                {
-                    Name = fluxEventAttribute?.Name ?? t.Name,
-                    Type = t
-                };
-            })
-            .Distinct()
-            .ToList();
+        _streamStore = streamStore;
+        _knownEventTypes = DiscoverEventTypes(options ?? new FluxOptions());
     }
 
     /// <summary>
@@ -49,138 +31,117 @@ public class FluxStore
     /// </summary>
     /// <param name="event">The event to append. Its <see cref="FluxEvent.Id"/> selects the stream.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <exception cref="FluxConcurrencyException">Thrown when the stream was modified concurrently.</exception>
     public async Task AddEvent(FluxEvent @event, CancellationToken cancellationToken = default)
     {
-        var header = await GetHeaderAsync(@event.Id, cancellationToken) ?? new FluxHeader(@event.Id);
-        @event.Version = ++header.Version;
-        var tableEntity = FromFluxEvent(@event);
-        TableTransactionAction[] tableTransactionActions =
-        {
-            new(TableTransactionActionType.Add, tableEntity),
-            new(TableTransactionActionType.UpdateReplace, header)
-        };
-        await _tableClient.SubmitTransactionAsync(tableTransactionActions, cancellationToken);
+        var expectedVersion = await ResolveExpectedVersionAsync(@event.Id, cancellationToken);
+        var newVersion = NextVersion(expectedVersion);
+        @event.Version = newVersion;
+        var record = ToRecord(@event);
+        await _streamStore.AppendToStreamAsync(@event.Id, expectedVersion, new[] { record }, newVersion, cancellationToken);
     }
 
     /// <summary>
     /// Appends a batch of events, grouped by stream.
     /// </summary>
     /// <remarks>
-    /// Events are grouped by <see cref="FluxEvent.Id"/>; each group is written as a
-    /// single table transaction (events plus the header update), and groups are sent
-    /// concurrently. Groups larger than Azure's 100-entity transaction limit are not
-    /// currently chunked.
+    /// Events are grouped by <see cref="FluxEvent.Id"/>; each group is appended as one
+    /// atomic backend operation and the groups are sent concurrently. A conflicting
+    /// append fails the whole batch with <see cref="FluxConcurrencyException"/>.
     /// </remarks>
     /// <param name="events">The events to append. Events with the same id share a stream.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <exception cref="FluxConcurrencyException">Thrown when a stream was modified concurrently.</exception>
     public async Task AddEvents(IEnumerable<FluxEvent> events, CancellationToken cancellationToken = default)
     {
         var fluxEvents = events as FluxEvent[] ?? events.ToArray();
-        if (!fluxEvents.Any()) return;
-        var eventGroups = fluxEvents.GroupBy(e => e.Id);
+        if (fluxEvents.Length == 0) return;
 
-        var tasks = new List<Task>();
-        foreach (var eventGroup in eventGroups)
-        {
-            var header = await GetHeaderAsync(eventGroup.Key, cancellationToken) ?? new FluxHeader(eventGroup.Key);
-            var tableEntities = eventGroup
-                .Select(FromFluxEvent)
-                .Select(te =>
-                {
-                    te["Version"] = ++header.Version;
-                    return new TableTransactionAction(TableTransactionActionType.Add, te);
-                })
-                .ToArray();
-            var tableTransactionActions = new List<TableTransactionAction>(tableEntities)
-            {
-                new(TableTransactionActionType.UpdateReplace, header)
-            };
-            tasks.Add(_tableClient.SubmitTransactionAsync(tableTransactionActions, cancellationToken));
-        }
+        var tasks = fluxEvents
+            .GroupBy(e => e.Id)
+            .Select(group => AppendGroupAsync(group, cancellationToken));
 
         await Task.WhenAll(tasks);
     }
 
-
-    private async Task<IReadOnlyList<FluxEvent>> GetEventsAsync(string id, CancellationToken cancellationToken)
+    private async Task AppendGroupAsync(IEnumerable<FluxEvent> group, CancellationToken cancellationToken)
     {
-        var results = new List<TableEntity>();
-        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
-            e => e.PartitionKey == id && e.RowKey != FluxHeader.FluxHeaderKey,
-            cancellationToken: cancellationToken))
+        var events = group as FluxEvent[] ?? group.ToArray();
+        var streamId = events[0].Id;
+        var expectedVersion = await ResolveExpectedVersionAsync(streamId, cancellationToken);
+
+        var version = NextVersion(expectedVersion);
+        var records = new List<FluxEventRecord>(events.Length);
+        foreach (var @event in events)
         {
-            results.Add(entity);
+            @event.Version = version;
+            records.Add(ToRecord(@event));
+            version++;
         }
 
-        return results
-            .OrderBy(e => e.Timestamp)
-            .Select(ToFluxEvent)
+        await _streamStore.AppendToStreamAsync(streamId, expectedVersion, records, version - 1, cancellationToken);
+    }
+
+    private async Task<int> ResolveExpectedVersionAsync(string streamId, CancellationToken cancellationToken)
+    {
+        var metadata = await _streamStore.GetStreamMetadataAsync(streamId, cancellationToken);
+        return metadata?.Version ?? NoStream;
+    }
+
+    private static int NextVersion(int expectedVersion) => expectedVersion == NoStream ? 1 : expectedVersion + 1;
+
+    private static List<KnownFluxEventType> DiscoverEventTypes(FluxOptions options)
+    {
+        var explicitTypes = options.EventTypes
+            .Where(t => t.IsSubclassOf(typeof(FluxEvent)))
+            .ToList();
+        var assemblies = options.EventAssemblies.ToList();
+
+        // Explicit registrations win: as soon as anything is registered, the implicit
+        // "scan all loaded assemblies" fallback is disabled.
+        if (explicitTypes.Count == 0 && assemblies.Count == 0)
+        {
+            assemblies.AddRange(AppDomain.CurrentDomain.GetAssemblies());
+        }
+
+        var discovered = new List<KnownFluxEventType>(explicitTypes.Count + assemblies.Count * 4);
+        discovered.AddRange(explicitTypes.Select(ToKnownEventType));
+        foreach (var assembly in assemblies)
+        {
+            discovered.AddRange(assembly
+                .GetTypes()
+                .Where(t => t.IsSubclassOf(typeof(FluxEvent)))
+                .Select(ToKnownEventType));
+        }
+
+        // A type registered explicitly AND found in a scanned assembly must not be duplicated.
+        return discovered
+            .GroupBy(k => k.Type)
+            .Select(g => g.First())
             .ToList();
     }
 
-    private async Task<FluxHeader?> GetHeaderAsync(string id, CancellationToken cancellationToken)
+    private static KnownFluxEventType ToKnownEventType(Type type)
     {
-        try
+        var fluxEventAttribute = type
+            .GetCustomAttributes(true)
+            .OfType<FluxEventAttribute>()
+            .SingleOrDefault();
+        return new KnownFluxEventType
         {
-            var header = await _tableClient.GetEntityAsync<FluxHeader>(
-                id,
-                FluxHeader.FluxHeaderKey,
-                cancellationToken: cancellationToken);
-            return header.Value;
-        }
-        catch (OperationCanceledException)
-        {
-            // Cancellation must propagate: a cancelled caller is not "stream doesn't exist".
-            // TaskCanceledException derives from OperationCanceledException, so it is covered here.
-            throw;
-        }
-        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
-        {
-            // 404 means the header row is absent — the stream does not exist.
-            return null;
-        }
-        catch (Exception)
-        {
-            // Known debt: swallow all other errors (auth, network, etc.) as "stream doesn't exist".
-            return null;
-        }
+            Name = fluxEventAttribute?.Name ?? type.Name,
+            Type = type
+        };
     }
 
-    private FluxEvent ToFluxEvent(TableEntity tableEntity)
-    {
-        var knownEventType = _knownEventTypes.SingleOrDefault(t => t.Name == (string) tableEntity["EventType"]);
-        if (knownEventType == null) throw new Exception($"Event type {tableEntity["EventType"]} not found");
-        var @event = Activator.CreateInstance(knownEventType.Type, tableEntity["PartitionKey"]);
-        if (@event == null) throw new Exception($"Could not create instance of {knownEventType.Type}");
-        var properties = @event.GetType().GetProperties();
-        foreach (var property in properties)
-        {
-            var attribute = property
-                .GetCustomAttributes(true)
-                .OfType<FluxPropertyAttribute>()
-                .SingleOrDefault();
-            if (attribute != null)
-            {
-                var value = tableEntity[attribute.Name];
-                property.SetValue(@event, value);
-            }
-        }
-
-        return (FluxEvent) @event;
-    }
-
-    private TableEntity FromFluxEvent(FluxEvent @event)
+    private FluxEventRecord ToRecord(FluxEvent @event)
     {
         var eventType = @event.GetType();
         var knownEventType = _knownEventTypes.SingleOrDefault(t => t.Type == eventType);
         if (knownEventType == null) throw new Exception($"Event type {eventType} not found");
-        var tableEntity = new TableEntity(@event.Id, $"F-{Guid.NewGuid()}")
-        {
-            {"EventType", knownEventType.Name},
-            {"Version", @event.Version}
-        };
-        var properties = @event.GetType().GetProperties();
-        foreach (var property in properties)
+
+        var properties = new Dictionary<string, object?>();
+        foreach (var property in eventType.GetProperties())
         {
             var attribute = property
                 .GetCustomAttributes(true)
@@ -188,12 +149,39 @@ public class FluxStore
                 .SingleOrDefault();
             if (attribute != null)
             {
-                var value = property.GetValue(@event);
-                tableEntity.Add(attribute.Name, value);
+                properties[attribute.Name] = property.GetValue(@event);
             }
         }
 
-        return tableEntity;
+        return new FluxEventRecord
+        {
+            EventTypeName = knownEventType.Name,
+            Version = @event.Version,
+            Properties = properties
+        };
+    }
+
+    private FluxEvent Hydrate(string streamId, FluxEventRecord record)
+    {
+        var knownEventType = _knownEventTypes.SingleOrDefault(t => t.Name == record.EventTypeName);
+        if (knownEventType == null) throw new Exception($"Event type {record.EventTypeName} not found");
+        if (Activator.CreateInstance(knownEventType.Type, streamId) is not FluxEvent @event)
+            throw new Exception($"Could not create instance of {knownEventType.Type}");
+
+        @event.Version = record.Version;
+        foreach (var property in knownEventType.Type.GetProperties())
+        {
+            var attribute = property
+                .GetCustomAttributes(true)
+                .OfType<FluxPropertyAttribute>()
+                .SingleOrDefault();
+            if (attribute != null && record.Properties.TryGetValue(attribute.Name, out var value))
+            {
+                property.SetValue(@event, value);
+            }
+        }
+
+        return @event;
     }
 
     /// <summary>
@@ -208,24 +196,26 @@ public class FluxStore
         cancellationToken.ThrowIfCancellationRequested();
         if (Activator.CreateInstance(typeof(T), id) is not T projection)
             throw new Exception($"Failed to create Projection {typeof(T)}.");
-        var events = await GetEventsAsync(id, cancellationToken);
-        var eventsArray = events.ToArray();
-        if (eventsArray.Length == 0) return null;
+
+        var records = await _streamStore.ReadStreamAsync(id, cancellationToken);
+        var events = records.Select(r => Hydrate(id, r)).ToArray();
         cancellationToken.ThrowIfCancellationRequested();
-        projection.Load(eventsArray);
+        if (events.Length == 0) return null;
+
+        projection.Load(events);
         return projection;
     }
 
     /// <summary>
-    /// Checks whether a stream exists (i.e. has a header row).
+    /// Checks whether a stream exists (i.e. has at least one event).
     /// </summary>
     /// <param name="id">The stream id.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns><c>true</c> when the stream has at least one event.</returns>
     public async Task<bool> StreamExists(string id, CancellationToken cancellationToken = default)
     {
-        var streamHeader = await GetHeaderAsync(id, cancellationToken);
-        return streamHeader != null;
+        var metadata = await _streamStore.GetStreamMetadataAsync(id, cancellationToken);
+        return metadata != null;
     }
 
     /// <summary>
@@ -236,8 +226,8 @@ public class FluxStore
     /// <returns>The stream version, or <c>null</c> when the stream does not exist.</returns>
     public async Task<int?> GetStreamVersion(string id, CancellationToken cancellationToken = default)
     {
-        var streamHeader = await GetHeaderAsync(id, cancellationToken);
-        return streamHeader?.Version;
+        var metadata = await _streamStore.GetStreamMetadataAsync(id, cancellationToken);
+        return metadata?.Version;
     }
 
     private class KnownFluxEventType

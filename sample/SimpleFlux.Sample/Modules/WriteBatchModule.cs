@@ -1,4 +1,3 @@
-﻿using Azure.Data.Tables;
 using Faker;
 using SimpleFlux.Sample.Events;
 
@@ -6,8 +5,8 @@ namespace SimpleFlux.Sample.Modules;
 
 public class WriteBatchModule : SampleModule
 {
-    public WriteBatchModule(TableClient tableClient)
-        : base(tableClient)
+    public WriteBatchModule(FluxStore fluxStore)
+        : base(fluxStore)
     {
     }
 
@@ -20,9 +19,8 @@ public class WriteBatchModule : SampleModule
             .Range(0, 20)
             .Select(_ => new ItemAdded(sku, RandomNumber.Next(1, 100)));
 
-        // FluxStore.AddEvents uses TableTransactionAction internally, but this requires
-        // that all records have the same partition key (the events id field).  If sending a
-        // batch of events with the same id, the insert will be very quick.
+        // FluxStore.AddEvents uses one atomic backend append per stream — with a single
+        // stream id the whole batch lands as one transaction.
         await FluxStore.AddEvents(events);
     }
 }
