@@ -156,9 +156,9 @@ Task<FluxStreamMetadata?> GetStreamMetadataAsync(string streamId, CancellationTo
 ## Architecture & Conventions
 
 1. **Events:** subclass `FluxEvent(id)`, decorate with `[FluxEvent("TypeName")]`, mark persisted fields with `[FluxProperty("ColumnName")]` (the column value is `property.GetValue(...)`). `Id` = stream/partition key; `Version` (long) is assigned by the store and **is restored on read** (`Hydrate` sets `@event.Version = record.Version`).
-2. **Event discovery:** `AddSimpleFlux().WithEvent<T>()` (exact type) or `.WithAssemblyEvents<TMarker>()` (all in an assembly). As soon as anything registers explicitly, the implicit "scan all loaded assemblies" fallback is disabled. Events must be discoverable in a registered assembly at store construction.
+2. **Event discovery:** register events explicitly before constructing the store — `WithEvent<T>()`, `WithEvents<T1,T2>()`, or `ScanAssemblyOf<TMarker>()` (scans the marker's assembly). No events registered → `InvalidOperationException`. Combinable: you can mix explicit types with assembly scans.
 3. **Projections:** subclass `FluxProjection(id)` and implement `public void Apply(SomeEvent e)` per event type. `ApplyChange` routes via `dynamic`; a built-in no-op `Apply(FluxEvent)` swallows unhandled types. `FluxStore.ProjectTo<T>(id)` replays the stream and returns the projection, or `null` for an empty stream.
-4. **DI:** `services.AddSimpleFlux().WithAssemblyEvents<ItemAdded>().UseInMemory()` (or `.UseFlatFile(path)` / `.UseAzureTables(...)`). No-DI still works: `new FluxStore(new InMemoryStreamStore())`.
+4. **DI:** `services.AddSimpleFlux().ScanAssemblyOf<ItemAdded>().UseInMemory()` (or `.UseFlatFile(path)` / `.UseAzureTables(...)`). No-DI still works: `new FluxStore(new InMemoryStreamStore(), new FluxOptions { EventTypes = { typeof(MyEvent) } })`.
 5. **Conventions:** file-scoped namespaces, `public` API, full **XML docs** on the public surface, nullable annotations on, cancellation tokens everywhere (#12).
 6. **Versioning:** csproj uses `VersionPrefix` (local default 2.0.0). CI/publish workflows pass the exact version via `-p:Version=X.Y.Z` (stable) or `-p:Version=X.Y.Z-alpha.N` (prerelease). Never hardcode a full version inline — see `RELEASING.md`.
 

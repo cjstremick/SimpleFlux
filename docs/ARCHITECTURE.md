@@ -107,25 +107,28 @@ Azure Tables maps to columns, a JSON backend serializes, InMemory stores as-is).
 ```csharp
 // Core: fluent builder
 services.AddSimpleFlux()
-        .WithAssemblyEvents<ItemAdded>()        // events from this assembly
-        // .WithEvent<ItemAdded>()              // or: exactly one event type
+        .WithEvents<ItemAdded, ItemRemoved>()   // explicit batch
+        // .ScanAssemblyOf<ItemAdded>()          // or: scan an assembly
         .UseInMemory();                         // SimpleFlux.InMemory
 
 // or Azure Tables (SimpleFlux.AzureTables):
 services.AddSimpleFlux()
-        .WithAssemblyEvents<ItemAdded>()
+        .ScanAssemblyOf<ItemAdded>()
         .UseAzureTables(new TableClient("UseDevelopmentStorage=true", "FluxStore"));
 
-// no-DI usage still works:
-var store = new FluxStore(new InMemoryStreamStore());
+// no-DI usage (must register event types):
+var store = new FluxStore(new InMemoryStreamStore(),
+    new FluxOptions { EventTypes = { typeof(ItemAdded) } });
 ```
 
 - `AddSimpleFlux(Action<FluxOptions>?)` lives in core (depends only on
   `Microsoft.Extensions.DependencyInjection.Abstractions` — no runtime provider).
-- Event registration is fluent: `WithEvent<T>()` (one type, no scanning),
-  `WithAssemblyEvents<TMarker>()` / `WithAssemblyEvents(Assembly)` (all events in an
-  assembly). As soon as anything is registered explicitly, the implicit
-  "scan all loaded assemblies" fallback is disabled.
+- Event registration is explicit and combinable: `WithEvent<T>()` (one type),
+  `WithEvents<T1,T2,...>()` (batch), `ScanAssemblyOf<TMarker>()` /
+  `ScanAssembly(Assembly)` (scan an assembly). No events registered →
+  `InvalidOperationException` at store construction.
+
+- `FluxOptions`:
 - `FluxOptions`:
   - `EventTypes` / `EventAssemblies` — the explicit registrations above.
   - `StoreLifetime` — DI lifetime for the store + `FluxStore` (default
