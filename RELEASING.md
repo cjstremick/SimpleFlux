@@ -8,7 +8,7 @@ three GitHub Actions workflows — you never have to run `dotnet nuget push` by 
 
 | Workflow | Runs when | What it does |
 |---|---|---|
-| `ci.yml` | Automatically: every PR and push to `main` | Restore → build → pack. **Publishes nothing.** This is your safety net. |
+| `ci.yml` | Automatically: every PR and push to `main` | Restore → build → test (excludes Azurite tests) → pack. **Publishes nothing.** This is your safety net. |
 | `Publish Prerelease` | Manually: Actions tab → Run workflow | Builds and publishes a prerelease (e.g. `1.1.0-alpha.1`) of **all** SimpleFlux packages (`SimpleFlux`, `SimpleFlux.AzureTables`, `SimpleFlux.InMemory`) to NuGet, creates a GitHub **Pre-release** + tag (`v1.1.0-alpha.1`). |
 | `Publish Release` | Manually: Actions tab → Run workflow | **Promotes** a prerelease to stable (e.g. `1.1.0-alpha.1` → `1.1.0`), publishes all packages to NuGet, creates the GitHub Release + tag (`v1.1.0`). Can also release a stable version directly. |
 
@@ -45,22 +45,20 @@ Where does the version live? The csproj only defines a local default
 
 ## One-time setup (do this once)
 
-### 1. Create a NuGet API key
+Publishing uses [NuGet trusted publishers](https://learn.microsoft.com/en-us/nuget/create-packages/trusted-publishers) — no long-lived API key stored in GitHub secrets. GitHub issues a short-lived OIDC token that NuGet verifies against your repo + workflow.
 
-1. Go to [nuget.org → API Keys](https://www.nuget.org/account/apikeys) and sign in (the account that owns the `SimpleFlux` package).
-2. Click **Create**.
-3. Name it something obvious like `SimpleFlux GitHub Actions`.
-4. Scope: `Push new packages and package versions` (this is the only permission the workflows need).
-5. Copy the key — it is shown **only once**.
+### 1. Link your nuget.org account to GitHub
 
-### 2. Add it to the repo as a secret
+1. Go to [nuget.org → Account Settings → Trusted Publishers](https://www.nuget.org/account) and configure trusted publishing for the `SimpleFlux` package.
+2. Add your GitHub repository (`cjstremick/SimpleFlux`) and the workflow filenames (`publish-prerelease.yml`, `publish-release.yml`).
+
+### 2. Add the NUGET_USER secret
 
 1. GitHub → SimpleFlux → **Settings → Secrets and variables → Actions**.
 2. Click **New repository secret**.
-3. Name: `NUGET_API_KEY` (exact spelling), value: the key from step 1.
+3. Name: `NUGET_USER` (exact spelling), value: your **nuget.org profile name** (not your email address).
 
-Both publish workflows check for this secret and fail with instructions if it's
-missing.
+Both publish workflows use this to exchange a GitHub OIDC token for a short-lived NuGet API key via `NuGet/login@v1`. No static API key is ever stored in the repo.
 
 ### 3. Make sure Actions is enabled
 
@@ -70,7 +68,7 @@ GitHub → SimpleFlux → **Settings → Actions → General** → ensure **Allo
 
 1. Go to the **Actions** tab → **Publish Prerelease** → **Run workflow**.
 2. Enter the version, e.g. `1.1.0-alpha.1`, pick branch `main`, click **Run workflow**.
-3. Watch it: validate version → check NuGet → build → pack → push → GitHub prerelease.
+3. Watch it: validate version → check NuGet → build → pack → OIDC login → push → GitHub prerelease.
 
 When it finishes:
 - NuGet: [SimpleFlux](https://www.nuget.org/packages/SimpleFlux) shows `1.1.0-alpha.1`
@@ -129,7 +127,7 @@ works as-is; for wildcards add `AllowPrereleaseVersions="true"`:
 
 **Build & pack:** `dotnet build` + `dotnet pack` with `-p:Version=<input>`, so the package, assembly, and file versions all match the release.
 
-**Publish:** `dotnet nuget push` to api.nuget.org with the `NUGET_API_KEY` secret.
+**Publish:** `dotnet nuget push` to api.nuget.org using a short-lived OIDC token (`NuGet/login@v1`). No long-lived API key is stored in the repo.
 Packages include the README, icon, license (MIT), XML docs, and **debug symbols**
 (`.snupkg` + SourceLink), so consumers can step into the library source.
 nuget.org shows the icon, description, repository link, and changelog link automatically.
@@ -142,11 +140,11 @@ nuget.org shows the icon, description, repository link, and changelog link autom
 
 | Symptom | Cause / fix |
 |---|---|
-| "NUGET_API_KEY secret is not set" | Do the one-time setup above. |
+| OIDC login fails / no `NUGET_API_KEY` output | Check that `NUGET_USER` secret is set (your nuget.org profile name, not email). Verify trusted publishers are configured on nuget.org for this repo + workflow. |
 | "already exists on NuGet (HTTP 200)" | You (or a previous run) already published that version. NuGet versions are immutable — pick the next version. |
 | "SimpleFlux X was not found on NuGet" | Promoting a prerelease that was never published. Run *Publish Prerelease* first. |
-| Push fails with 401/403 | API key is wrong, expired, or the nuget.org account doesn't own the package. Create a new key. |
-| Workflow doesn't appear in the Actions tab | Push a commit that touches `.github/workflows/` to main (this PR does), then check Actions is enabled (one-time setup, step 3). |
+| Push fails with 401/403 | OIDC token rejected — verify trusted publishers match the repo owner, repo name, and workflow filename exactly. |
+| Workflow doesn't appear in the Actions tab | Push a commit that touches `.github/workflows/` to main, then check Actions is enabled (one-time setup, step 3). |
 | GitHub Release says "tag already exists" | The tag `vX.Y.Z` exists but the release was deleted. Delete the tag (git push origin :refs/tags/vX.Y.Z) and re-run, or pick a new version. |
 
 ## FAQ

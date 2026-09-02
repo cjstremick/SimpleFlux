@@ -20,7 +20,7 @@
 - **`SimpleFlux.FlatFile` dependency:** none (uses `System.Text.Json` from runtime)
 - **Sample-only dependency:** `Faker.Net` (data generation in the demo)
 - **Test framework:** xUnit 2.9.3 (pinned in CPM)
-- **Package version management:** Central Package Management (`Directory.Packages.props` + `Directory.Build.props` + `Directory.Build.targets`); `NUGET_API_KEY` secret in CI.
+- **Package version management:** Central Package Management (`Directory.Packages.props` + `Directory.Build.props` + `Directory.Build.targets`); `NUGET_USER` secret + OIDC trusted publishers in CI.
 
 ## Repo Structure (2.0.0)
 
@@ -197,7 +197,7 @@ Azure Tables benchmarks need Azurite. Results from Apple M4 (Sept 2026):
 2. **`publish-prerelease.yml`** — manual (Actions → "Publish Prerelease"). Takes e.g. `1.1.0-alpha.1`, validates semver, checks NuGet for prior existence, packs, pushes prerelease, creates a matching GitHub **Pre-release** + git tag `vX.Y.Z`.
 3. **`release.yml`** — manual (Actions → "Publish Release"). Promotes a prerelease (`1.1.0-alpha.1` → `1.1.0`) or releases a stable version directly. Creates the GitHub Release + tag.
 
-**Hard requirements:** `NUGET_API_KEY` secret in repo Settings → Secrets and variables → Actions. All publishing workflows fail fast with a clear message if missing. **All three `SimpleFlux*` packages ship together at the same version** from one pack.
+**Hard requirements:** `NUGET_USER` secret in repo Settings → Secrets and variables → Actions. All publishing workflows fail fast if OIDC login fails (check NUGET_USER secret + trusted publishers config). **All three `SimpleFlux*` packages ship together at the same version** from one pack.
 
 ## Known Issues & Tech Debt
 

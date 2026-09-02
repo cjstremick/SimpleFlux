@@ -30,6 +30,9 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write  # GitHub OIDC token for NuGet trusted publishers
 
     steps:
       - name: Checkout code
@@ -55,15 +58,6 @@ jobs:
           fi
           echo "version=$STABLE" >> "$GITHUB_OUTPUT"
           echo "prerelease_input=$INPUT" >> "$GITHUB_OUTPUT"
-
-      - name: Verify NuGet API key is configured
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "::error::The NUGET_API_KEY secret is not set. Create an API key at https://www.nuget.org/account/apikeys and add it under Settings > Secrets and variables > Actions (see RELEASING.md)."
-            exit 1
-          fi
 
       - name: Check stable version not already published
         run: |
@@ -102,13 +96,18 @@ jobs:
       - name: Pack
         run: dotnet pack --no-restore --no-build --configuration Release -p:Version=${{ steps.version.outputs.version }} -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg --output artifacts
 
+      # OIDC: exchange GitHub identity for a short-lived NuGet API key
+      - name: NuGet login (OIDC)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to NuGet
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           # Every SimpleFlux* package (core + backends) publishes at this version.
           dotnet nuget push "artifacts/SimpleFlux*.nupkg" \
-            --api-key "$NUGET_API_KEY" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --symbol-source https://api.nuget.org/v3/index.json
 
